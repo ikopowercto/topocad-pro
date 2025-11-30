@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TopoCAD Pro v1.1 - Traitement Topographique Professionnel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f3f4f6; }
+        .app-container { display: flex; flex-direction: column; height: 100vh; }
+        .main-content { display: flex; flex: 1; overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100; }
+        .header-content { display: flex; align-items: center; justify-content: space-between; }
+        .logo { display: flex; align-items: center; gap: 1rem; }
+        .logo-icon { width: 40px; height: 40px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+        .sidebar { width: 320px; background: white; border-right: 1px solid #e5e7eb; overflow-y: auto; }
+        .sidebar-section { padding: 1.5rem; border-bottom: 1px solid #e5e7eb; }
+        .section-title { font-size: 0.875rem; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+        .viewer-container { flex: 1; position: relative; background: #1f2937; }
+        #pdfCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.3; }
+        #canvas3d { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .btn { padding: 0.625rem 1.25rem; border-radius: 0.5rem; border: none; font-weight: 500; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-tool { background: #f3f4f6; color: #374151; width: 100%; justify-content: flex-start; margin-bottom: 0.5rem; }
+        .btn-tool.active { background: #3b82f6; color: white; }
+        .input-group { margin-bottom: 1rem; }
+        .input-label { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.5rem; }
+        select, input[type="range"] { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; }
+        .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1rem; border-radius: 0.5rem; color: white; margin-bottom: 0.75rem; }
+        .stat-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .stat-label { font-size: 0.75rem; opacity: 0.9; }
+        .diagnostic-panel { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.75rem; }
+        .diagnostic-success { color: #059669; }
+        .diagnostic-warning { color: #f59e0b; }
+        .diagnostic-error { color: #dc2626; }
+        .dropzone { border: 2px dashed #d1d5db; border-radius: 0.5rem; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s; background: #f9fafb; }
+        .dropzone:hover { border-color: #3b82f6; background: #eff6ff; }
+        .hidden { display: none !important; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+        .selection-rect { position: absolute; border: 2px solid #3b82f6; background: rgba(59, 130, 246, 0.1); pointer-events: none; }
+        .profile-overlay { position: absolute; bottom: 20px; left: 20px; right: 20px; background: rgba(255,255,255,0.95); padding: 1rem; border-radius: 0.5rem; max-height: 300px; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">📐</div>
+                    <div>
+                        <h1 style="font-size: 1.5rem; font-weight: 700;">TopoCAD Pro v1.1</h1>
+                        <p style="font-size: 0.875rem; opacity: 0.9;">Traitement Topographique Avancé</p>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h2 class="section-title">📥 Import PDF</h2>
+                    <div class="dropzone" id="dropzone">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
+                        <p style="font-weight: 600; margin-bottom: 0.5rem;">Glissez votre PDF ici</p>
+                        <input type="file" id="pdfInput" accept=".pdf" class="hidden">
+                        <button class="btn btn-primary" onclick="document.getElementById('pdfInput').click()">📁 Choisir un fichier</button>
+                    </div>
+                    <div class="input-group" style="margin-top: 1rem;">
+                        <label class="input-label">Système de coordonnées</label>
+                        <select id="coordSystem">
+                            <option value="lambert93">Lambert 93</option>
+                            <option value="lambert2e">Lambert II étendu</option>
+                            <option value="utm">UTM</option>
+                            <option value="custom">Personnalisé</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="sidebar-section">
+                    <h2 class="section-title">🛠️ Outils</h2>
+                    <button class="btn-tool active" data-tool="view" onclick="APP.setTool('view')">👁️ Navigation</button>
+                    <button class="btn-tool" data-tool="select" onclick="APP.setTool('select')">⬜ Sélection rectangle</button>
+                    <button class="btn-tool" data-tool="profile" onclick="APP.setTool('profile')">📊 Profil en long</button>
+                </div>
+                
+                <div class="sidebar-section hidden" id="statsSection">
+                    <h2 class="section-title">📊 Statistiques</h2>
+                    <div class="grid-2">
+                        <div class="stat-card">
+                            <div class="stat-value" id="statPoints">0</div>
+                            <div class="stat-label">Points extraits</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statSelected">0</div>
+                            <div class="stat-label">Sélectionnés</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div style="display: flex; justify-content: space-between;">
+                            <div><strong>Min:</strong> <span id="statMinElev">-</span></div>
+                            <div><strong>Max:</strong> <span id="statMaxElev">-</span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="sidebar-section hidden" id="params3DSection">
+                    <h2 class="section-title">⚙️ Paramètres 3D</h2>
+                    <div class="input-group">
+                        <label class="input-label">Exagération verticale: <span id="exagValue">2x</span></label>
+                        <input type="range" id="exagSlider" min="1" max="10" value="2" step="0.5">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Opacité PDF: <span id="opacityValue">30%</span></label>
+                        <input type="range" id="opacitySlider" min="0" max="100" value="30" step="5">
+                    </div>
+                </div>
+                
+                <div class="sidebar-section hidden" id="exportSection">
+                    <h2 class="section-title">💾 Export</h2>
+                    <button class="btn btn-success" style="width: 100%; margin-bottom: 0.5rem;" onclick="APP.exportDXF()">📦 Export DXF</button>
+                    <button class="btn btn-secondary" style="width: 100%;" onclick="APP.exportCSV()">📄 Export CSV</button>
+                </div>
+                
+                <div class="sidebar-section">
+                    <h2 class="section-title">🔍 Diagnostic</h2>
+                    <button class="btn btn-secondary" style="width: 100%; font-size: 0.75rem;" onclick="APP.toggleDiagnostic()">
+                        <span id="diagnosticToggleText">Afficher diagnostic</span>
+                    </button>
+                    <div id="diagnosticPanel" class="diagnostic-panel hidden" style="margin-top: 1rem;">
+                        <div id="diagnosticContent">Aucune donnée...</div>
+                    </div>
+                </div>
+            </aside>
+            
+            <div class="viewer-container">
+                <canvas id="pdfCanvas"></canvas>
+                <canvas id="canvas3d"></canvas>
+                <div id="selectionRect" class="selection-rect hidden"></div>
+                <div id="profileOverlay" class="profile-overlay hidden">
+                    <h3 style="font-weight: 600; margin-bottom: 0.5rem;">Profil en Long</h3>
+                    <canvas id="profileCanvas" style="width: 100%; height: 200px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const APP = {
+    state: {
+        pdf: null,
+        points: [],
+        selectedPoints: [],
+        currentTool: 'view',
+        scene: null,
+        camera: null,
+        renderer: null,
+        pointMeshes: [],
+        pdfTexture: null,
+        selectionStart: null,
+        profilePoints: []
+    },
+    
+    // PATTERNS D'ALTITUDE AMÉLIORÉS - TOUS LES FORMATS
+    elevationPatterns: [
+        { name: 'NE=XXX,XX', regex: /NE\s*=\s*(\d{2,3}[.,]\d{1,2})/gi },
+        { name: 'NE=XXX.XX', regex: /NE\s*=\s*(\d{2,3}\.\d{1,2})/gi },
+        { name: 'NGF=XXX,XX', regex: /NGF\s*=\s*(\d{2,3}[.,]\d{1,2})/gi },
+        { name: 'Z=XXX,XX', regex: /Z\s*=\s*(\d{2,3}[.,]\d{1,2})/gi },
+        { name: 'XXX,XX isolé', regex: /\b(\d{2,3},\d{1,2})\b/g },
+        { name: 'XXX.XX isolé', regex: /\b(\d{2,3}\.\d{1,2})\b/g },
+        { name: 'XXX,XXm', regex: /(\d{2,3},\d{1,2})\s*m\b/gi },
+        { name: 'XXX.XXm', regex: /(\d{2,3}\.\d{1,2})\s*m\b/gi }
+    ],
+    
+    async loadPDF(file) {
+        try {
+            this.log('📄 Chargement du PDF...', 'info');
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+            const viewport = page.getViewport({ scale: 2.0 });
+            
+            // Rendu du PDF sur canvas
+            const canvas = document.getElementById('pdfCanvas');
+            const context = canvas.getContext('2d');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            this.log('✅ PDF rendu à l\'écran', 'success');
+            
+            // Extraction du texte
+            const textContent = await page.getTextContent();
+            this.log(`✅ ${textContent.items.length} éléments de texte trouvés`, 'success');
+            
+            // Extraction des points
+            this.state.points = this.extractPoints(textContent, viewport);
+            this.log(`✅ ${this.state.points.length} points extraits`, 'success');
+            
+            this.state.pdf = { pdf, page, viewport };
+            this.updateStats();
+            this.init3D();
+            this.render3D();
+            
+            document.getElementById('statsSection').classList.remove('hidden');
+            document.getElementById('params3DSection').classList.remove('hidden');
+            document.getElementById('exportSection').classList.remove('hidden');
+            
+        } catch (error) {
+            this.log(`❌ Erreur: ${error.message}`, 'error');
+            alert('Erreur lors du chargement du PDF');
+        }
+    },
+    
+    extractPoints(textContent, viewport) {
+        const points = [];
+        const stats = {};
+        
+        // Pour chaque pattern
+        this.elevationPatterns.forEach(pattern => {
+            let count = 0;
+            
+            textContent.items.forEach(item => {
+                const text = item.str.trim();
+                if (!text) return;
+                
+                pattern.regex.lastIndex = 0;
+                let match;
+                
+                while ((match = pattern.regex.exec(text)) !== null) {
+                    let elevStr = match[1].replace(',', '.');
+                    let elevation = parseFloat(elevStr);
+                    
+                    // Validation altitude plausible
+                    if (elevation < 0 || elevation > 3000) continue;
+                    if (elevation < 10 || elevation > 500) continue; // Filtrage additionnel
+                    
+                    const x = item.transform[4];
+                    const y = viewport.height - item.transform[5];
+                    
+                    // Vérifier doublons
+                    const exists = points.some(p => 
+                        Math.abs(p.x - x) < 5 && 
+                        Math.abs(p.y - y) < 5
+                    );
+                    
+                    if (!exists) {
+                        points.push({
+                            id: `pt_${points.length}`,
+                            x: x,
+                            y: y,
+                            elevation: elevation,
+                            source: pattern.name,
+                            selected: false
+                        });
+                        count++;
+                    }
+                }
+            });
+            
+            if (count > 0) {
+                stats[pattern.name] = count;
+                this.log(`✓ ${pattern.name}: ${count} points`, 'success');
+            }
+        });
+        
+        return points;
+    },
+    
+    init3D() {
+        const canvas = document.getElementById('canvas3d');
+        const width = canvas.parentElement.offsetWidth;
+        const height = canvas.parentElement.offsetHeight;
+        
+        this.state.scene = new THREE.Scene();
+        this.state.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 10000);
+        this.state.camera.position.set(200, 200, 200);
+        
+        this.state.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        this.state.renderer.setSize(width, height);
+        this.state.renderer.setClearColor(0x000000, 0);
+        
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        this.state.scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(100, 200, 100);
+        this.state.scene.add(directionalLight);
+        
+        this.setupControls();
+        this.animate();
+    },
+    
+    render3D() {
+        this.state.pointMeshes.forEach(mesh => this.state.scene.remove(mesh));
+        this.state.pointMeshes = [];
+        
+        if (!this.state.points.length) return;
+        
+        const elevations = this.state.points.map(p => p.elevation);
+        const avgElev = elevations.reduce((a,b) => a+b, 0) / elevations.length;
+        const exag = parseFloat(document.getElementById('exagSlider').value);
+        
+        this.state.points.forEach(point => {
+            const geometry = new THREE.SphereGeometry(3, 16, 16);
+            const material = new THREE.MeshStandardMaterial({
+                color: point.selected ? 0xff6b00 : 0x3b82f6,
+                metalness: 0.3,
+                roughness: 0.4
+            });
+            
+            const x3d = (point.x - this.state.pdf.viewport.width / 2) / 5;
+            const y3d = (point.y - this.state.pdf.viewport.height / 2) / 5;
+            const z3d = (point.elevation - avgElev) * exag;
+            
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(x3d, z3d, y3d);
+            sphere.userData = { point };
+            
+            this.state.scene.add(sphere);
+            this.state.pointMeshes.push(sphere);
+        });
+        
+        this.fitCamera();
+    },
+    
+    setupControls() {
+        const canvas = document.getElementById('canvas3d');
+        let isDragging = false;
+        let previousMouse = { x: 0, y: 0 };
+        let isRightClick = false;
+        
+        canvas.addEventListener('mousedown', (e) => {
+            if (this.state.currentTool === 'select') {
+                this.startSelection(e);
+                return;
+            }
+            if (this.state.currentTool === 'profile') {
+                this.addProfilePoint(e);
+                return;
+            }
+            
+            isDragging = true;
+            isRightClick = e.button === 2;
+            previousMouse = { x: e.clientX, y: e.clientY };
+            e.preventDefault();
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (this.state.currentTool === 'select' && this.state.selectionStart) {
+                this.updateSelection(e);
+                return;
+            }
+            
+            if (!isDragging) return;
+            
+            const deltaX = e.clientX - previousMouse.x;
+            const deltaY = e.clientY - previousMouse.y;
+            
+            if (isRightClick) {
+                const distance = this.state.camera.position.length();
+                const factor = distance * 0.001;
+                this.state.camera.position.x -= deltaX * factor;
+                this.state.camera.position.y += deltaY * factor;
+            } else {
+                const rotationSpeed = 0.005;
+                const spherical = new THREE.Spherical();
+                spherical.setFromVector3(this.state.camera.position);
+                spherical.theta -= deltaX * rotationSpeed;
+                spherical.phi -= deltaY * rotationSpeed;
+                spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+                this.state.camera.position.setFromSpherical(spherical);
+                this.state.camera.lookAt(0, 0, 0);
+            }
+            
+            previousMouse = { x: e.clientX, y: e.clientY };
+        });
+        
+        canvas.addEventListener('mouseup', (e) => {
+            if (this.state.currentTool === 'select' && this.state.selectionStart) {
+                this.endSelection(e);
+                return;
+            }
+            isDragging = false;
+        });
+        
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const distance = this.state.camera.position.length();
+            const newDistance = distance * (1 + (e.deltaY > 0 ? 0.1 : -0.1));
+            this.state.camera.position.multiplyScalar(newDistance / distance);
+        });
+    },
+    
+    startSelection(e) {
+        const rect = e.target.getBoundingClientRect();
+        this.state.selectionStart = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+        document.getElementById('selectionRect').classList.remove('hidden');
+    },
+    
+    updateSelection(e) {
+        const rect = e.target.getBoundingClientRect();
+        const current = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+        
+        const selRect = document.getElementById('selectionRect');
+        const left = Math.min(this.state.selectionStart.x, current.x);
+        const top = Math.min(this.state.selectionStart.y, current.y);
+        const width = Math.abs(current.x - this.state.selectionStart.x);
+        const height = Math.abs(current.y - this.state.selectionStart.y);
+        
+        selRect.style.left = left + 'px';
+        selRect.style.top = top + 'px';
+        selRect.style.width = width + 'px';
+        selRect.style.height = height + 'px';
+    },
+    
+    endSelection(e) {
+        const rect = e.target.getBoundingClientRect();
+        const end = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+        
+        const left = Math.min(this.state.selectionStart.x, end.x);
+        const top = Math.min(this.state.selectionStart.y, end.y);
+        const right = Math.max(this.state.selectionStart.x, end.x);
+        const bottom = Math.max(this.state.selectionStart.y, end.y);
+        
+        // Sélectionner les points dans le rectangle
+        this.state.points.forEach(point => {
+            const inRect = point.x >= left && point.x <= right && 
+                          point.y >= top && point.y <= bottom;
+            point.selected = inRect;
+        });
+        
+        this.state.selectedPoints = this.state.points.filter(p => p.selected);
+        this.updateStats();
+        this.render3D();
+        
+        document.getElementById('selectionRect').classList.add('hidden');
+        this.state.selectionStart = null;
+        
+        this.log(`✅ ${this.state.selectedPoints.length} points sélectionnés`, 'success');
+    },
+    
+    addProfilePoint(e) {
+        // À implémenter pour profil en long
+        this.log('⚠️ Profil en long: tracez une ligne sur le plan', 'warning');
+    },
+    
+    fitCamera() {
+        if (!this.state.pointMeshes.length) return;
+        const box = new THREE.Box3();
+        this.state.pointMeshes.forEach(mesh => box.expandByObject(mesh));
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const distance = maxDim * 2;
+        this.state.camera.position.set(center.x + distance, center.y + distance, center.z + distance);
+        this.state.camera.lookAt(center);
+    },
+    
+    animate() {
+        requestAnimationFrame(() => this.animate());
+        if (this.state.renderer && this.state.scene && this.state.camera) {
+            this.state.renderer.render(this.state.scene, this.state.camera);
+        }
+    },
+    
+    exportDXF() {
+        const points = this.state.selectedPoints.length > 0 ? this.state.selectedPoints : this.state.points;
+        if (!points.length) return alert('Aucun point à exporter');
+        
+        let dxf = "0\nSECTION\n2\nENTITIES\n";
+        points.forEach(p => {
+            dxf += `0\nPOINT\n8\nPOINTS_TOPO\n10\n${p.x.toFixed(2)}\n20\n${p.y.toFixed(2)}\n30\n${p.elevation.toFixed(2)}\n`;
+        });
+        dxf += "0\nENDSEC\n0\nEOF\n";
+        
+        this.downloadFile(dxf, 'topocad_export.dxf', 'application/dxf');
+        this.log(`✅ Export DXF: ${points.length} points`, 'success');
+    },
+    
+    exportCSV() {
+        const points = this.state.selectedPoints.length > 0 ? this.state.selectedPoints : this.state.points;
+        if (!points.length) return alert('Aucun point à exporter');
+        
+        let csv = 'ID,X,Y,Z,Source\n';
+        points.forEach((p, i) => {
+            csv += `${i+1},${p.x.toFixed(2)},${p.y.toFixed(2)},${p.elevation.toFixed(2)},${p.source}\n`;
+        });
+        
+        this.downloadFile(csv, 'topocad_export.csv', 'text/csv');
+        this.log(`✅ Export CSV: ${points.length} points`, 'success');
+    },
+    
+    downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    },
+    
+    setTool(tool) {
+        this.state.currentTool = tool;
+        document.querySelectorAll('.btn-tool').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`[data-tool="${tool}"]`).classList.add('active');
+        this.log(`🛠️ Outil activé: ${tool}`, 'info');
+    },
+    
+    updateStats() {
+        document.getElementById('statPoints').textContent = this.state.points.length;
+        document.getElementById('statSelected').textContent = this.state.selectedPoints.length;
+        
+        if (this.state.points.length) {
+            const elevs = this.state.points.map(p => p.elevation);
+            document.getElementById('statMinElev').textContent = Math.min(...elevs).toFixed(2) + 'm';
+            document.getElementById('statMaxElev').textContent = Math.max(...elevs).toFixed(2) + 'm';
+        }
+    },
+    
+    log(message, type = 'info') {
+        const content = document.getElementById('diagnosticContent');
+        const time = new Date().toLocaleTimeString();
+        const className = `diagnostic-${type}`;
+        const line = document.createElement('div');
+        line.className = className;
+        line.textContent = `[${time}] ${message}`;
+        content.appendChild(line);
+        content.scrollTop = content.scrollHeight;
+        console.log(message);
+    },
+    
+    toggleDiagnostic() {
+        const panel = document.getElementById('diagnosticPanel');
+        panel.classList.toggle('hidden');
+        document.getElementById('diagnosticToggleText').textContent = 
+            panel.classList.contains('hidden') ? 'Afficher diagnostic' : 'Masquer diagnostic';
+    }
+};
+
+// INITIALISATION
+document.addEventListener('DOMContentLoaded', () => {
+    APP.log('🚀 TopoCAD Pro v1.1 initialisé', 'success');
+    
+    const pdfInput = document.getElementById('pdfInput');
+    const dropzone = document.getElementById('dropzone');
+    
+    pdfInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            APP.loadPDF(e.target.files[0]);
+        }
+    });
+    
+    dropzone.addEventListener('click', () => pdfInput.click());
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#3b82f6';
+    });
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.style.borderColor = '#d1d5db';
+    });
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#d1d5db';
+        if (e.dataTransfer.files.length > 0) {
+            APP.loadPDF(e.dataTransfer.files[0]);
+        }
+    });
+    
+    document.getElementById('exagSlider').addEventListener('input', (e) => {
+        document.getElementById('exagValue').textContent = e.target.value + 'x';
+        if (APP.state.points.length) APP.render3D();
+    });
+    
+    document.getElementById('opacitySlider').addEventListener('input', (e) => {
+        const opacity = e.target.value / 100;
+        document.getElementById('opacityValue').textContent = e.target.value + '%';
+        document.getElementById('pdfCanvas').style.opacity = opacity;
+    });
+});
+    </script>
+</body>
+</html>
