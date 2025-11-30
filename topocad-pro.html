@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TopoCAD Pro - Traitement Topographique Professionnel</title>
+    <meta name="description" content="Import PDF topographique, extraction points 3D, export DXF pour AutoCAD">
+    
+    <!-- ============================= -->
+    <!-- BIBLIOTHÈQUES EXTERNES (CDN)  -->
+    <!-- ============================= -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* ============================= */
+        /* STYLES GLOBAUX                */
+        /* ============================= */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #f3f4f6;
+        }
+        
+        /* ============================= */
+        /* LAYOUT PRINCIPAL              */
+        /* ============================= */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        /* ============================= */
+        /* HEADER                        */
+        /* ============================= */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+        
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 100%;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        /* ============================= */
+        /* SIDEBAR                       */
+        /* ============================= */
+        .sidebar {
+            width: 320px;
+            background: white;
+            border-right: 1px solid #e5e7eb;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-section {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .section-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #374151;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        
+        /* ============================= */
+        /* ZONE DE VISUALISATION 3D      */
+        /* ============================= */
+        .viewer-container {
+            flex: 1;
+            position: relative;
+            background: #1f2937;
+        }
+        
+        #canvas3d {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        /* ============================= */
+        /* BOUTONS ET CONTRÔLES          */
+        /* ============================= */
+        .btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 0.5rem;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-tool {
+            background: #f3f4f6;
+            color: #374151;
+            width: 100%;
+            justify-content: flex-start;
+            margin-bottom: 0.5rem;
+        }
+        
+        .btn-tool.active {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .btn-tool:hover {
+            background: #e5e7eb;
+        }
+        
+        .btn-tool.active:hover {
+            background: #2563eb;
+        }
+        
+        /* ============================= */
+        /* INPUTS ET SELECTS             */
+        /* ============================= */
+        .input-group {
+            margin-bottom: 1rem;
+        }
+        
+        .input-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        
+        select, input[type="range"], input[type="file"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* ============================= */
+        /* STATISTIQUES                  */
+        /* ============================= */
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            color: white;
+            margin-bottom: 0.75rem;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            opacity: 0.9;
+        }
+        
+        /* ============================= */
+        /* DIAGNOSTIC PANEL              */
+        /* ============================= */
+        .diagnostic-panel {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+        }
+        
+        .diagnostic-success {
+            color: #059669;
+        }
+        
+        .diagnostic-warning {
+            color: #f59e0b;
+        }
+        
+        .diagnostic-error {
+            color: #dc2626;
+        }
+        
+        /* ============================= */
+        /* OVERLAYS                      */
+        /* ============================= */
+        .overlay {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        
+        .controls-overlay {
+            display: flex;
+            gap: 0.5rem;
+            flex-direction: column;
+        }
+        
+        /* ============================= */
+        /* DROPZONE                      */
+        /* ============================= */
+        .dropzone {
+            border: 2px dashed #d1d5db;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f9fafb;
+        }
+        
+        .dropzone:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        
+        .dropzone.dragover {
+            border-color: #3b82f6;
+            background: #dbeafe;
+        }
+        
+        /* ============================= */
+        /* LOADING SPINNER               */
+        /* ============================= */
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* ============================= */
+        /* UTILITAIRES                   */
+        /* ============================= */
+        .hidden {
+            display: none !important;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .mb-1 { margin-bottom: 0.5rem; }
+        .mb-2 { margin-bottom: 1rem; }
+        .mb-3 { margin-bottom: 1.5rem; }
+        
+        .mt-1 { margin-top: 0.5rem; }
+        .mt-2 { margin-top: 1rem; }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- ============================= -->
+    <!-- STRUCTURE HTML PRINCIPALE     -->
+    <!-- ============================= -->
+    <div class="app-container">
+        
+        <!-- HEADER -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">📐</div>
+                    <div>
+                        <h1 style="font-size: 1.5rem; font-weight: 700;">TopoCAD Pro</h1>
+                        <p style="font-size: 0.875rem; opacity: 0.9;">Traitement Topographique v1.0</p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn btn-primary" onclick="APP.ui.showHelp()">
+                        ❓ Aide
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- CONTENU PRINCIPAL -->
+        <div class="main-content">
+            
+            <!-- SIDEBAR GAUCHE -->
+            <aside class="sidebar">
+                
+                <!-- SECTION: IMPORT PDF -->
+                <div class="sidebar-section">
+                    <h2 class="section-title">📥 Import PDF</h2>
+                    
+                    <div class="dropzone" id="dropzone">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
+                        <p style="font-weight: 600; margin-bottom: 0.5rem;">Glissez votre PDF ici</p>
+                        <p style="font-size: 0.875rem; color: #6b7280; margin-bottom: 1rem;">ou cliquez pour sélectionner</p>
+                        <input type="file" id="pdfInput" accept=".pdf" class="hidden">
+                        <button class="btn btn-primary" onclick="document.getElementById('pdfInput').click()">
+                            📁 Choisir un fichier
+                        </button>
+                    </div>
+                    
+                    <div class="input-group mt-2">
+                        <label class="input-label">Système de coordonnées</label>
+                        <select id="coordSystem">
+                            <option value="lambert93">Lambert 93 (France métro)</option>
+                            <option value="lambert2e">Lambert II étendu</option>
+                            <option value="utm">UTM</option>
+                            <option value="wgs84">WGS84 (Lat/Lon)</option>
+                            <option value="custom">Personnalisé</option>
+                        </select>
+                    </div>
+                    
+                    <div id="loadingIndicator" class="hidden mt-2">
+                        <div class="spinner"></div>
+                        <p class="text-center mt-1" style="font-size: 0.875rem; color: #6b7280;">Extraction en cours...</p>
+                    </div>
+                </div>
+                
+                <!-- SECTION: OUTILS -->
+                <div class="sidebar-section">
+                    <h2 class="section-title">🛠️ Outils</h2>
+                    
+                    <button class="btn-tool active" data-tool="view" onclick="APP.tools.setTool('view')">
+                        👁️ Navigation
+                    </button>
+                    <button class="btn-tool" data-tool="select" onclick="APP.tools.setTool('select')">
+                        ⬜ Sélection rectangle
+                    </button>
+                    <button class="btn-tool" data-tool="profile" onclick="APP.tools.setTool('profile')">
+                        📊 Profil en long
+                    </button>
+                </div>
+                
+                <!-- SECTION: STATISTIQUES -->
+                <div class="sidebar-section" id="statsSection" class="hidden">
+                    <h2 class="section-title">📊 Statistiques</h2>
+                    
+                    <div class="grid-2">
+                        <div class="stat-card">
+                            <div class="stat-value" id="statPoints">0</div>
+                            <div class="stat-label">Points extraits</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statSelected">0</div>
+                            <div class="stat-label">Sélectionnés</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-label mb-1">Altitude</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 1.125rem; font-weight: 600;">Min: <span id="statMinElev">-</span></div>
+                            </div>
+                            <div>
+                                <div style="font-size: 1.125rem; font-weight: 600;">Max: <span id="statMaxElev">-</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- SECTION: PARAMÈTRES 3D -->
+                <div class="sidebar-section" id="params3DSection" class="hidden">
+                    <h2 class="section-title">⚙️ Paramètres 3D</h2>
+                    
+                    <div class="input-group">
+                        <label class="input-label">
+                            Exagération verticale: <span id="exagValue">2x</span>
+                        </label>
+                        <input type="range" id="exagSlider" min="1" max="10" value="2" step="0.5">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="input-label">
+                            <input type="checkbox" id="showGrid" checked> Afficher la grille
+                        </label>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label class="input-label">
+                            <input type="checkbox" id="showLabels" checked> Afficher les étiquettes
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- SECTION: EXPORT -->
+                <div class="sidebar-section" id="exportSection" class="hidden">
+                    <h2 class="section-title">💾 Export</h2>
+                    
+                    <button class="btn btn-success" style="width: 100%; margin-bottom: 0.5rem;" onclick="APP.export.toDXF()">
+                        📦 Export DXF (AutoCAD)
+                    </button>
+                    
+                    <button class="btn btn-secondary" style="width: 100%;" onclick="APP.export.toCSV()">
+                        📄 Export CSV
+                    </button>
+                </div>
+                
+                <!-- SECTION: DIAGNOSTIC -->
+                <div class="sidebar-section">
+                    <h2 class="section-title">🔍 Diagnostic</h2>
+                    <button class="btn btn-secondary" style="width: 100%; font-size: 0.75rem;" onclick="APP.ui.toggleDiagnostic()">
+                        <span id="diagnosticToggleText">Afficher diagnostic</span>
+                    </button>
+                    <div id="diagnosticPanel" class="diagnostic-panel mt-2 hidden">
+                        <div id="diagnosticContent">Aucune donnée chargée...</div>
+                    </div>
+                </div>
+                
+            </aside>
+            
+            <!-- ZONE DE VISUALISATION 3D -->
+            <div class="viewer-container">
+                <canvas id="canvas3d"></canvas>
+                
+                <!-- OVERLAY CONTRÔLES 3D -->
+                <div class="overlay controls-overlay">
+                    <div style="font-size: 0.75rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                        CONTRÔLES 3D
+                    </div>
+                    <div style="font-size: 0.75rem; color: #6b7280; line-height: 1.5;">
+                        🖱️ Clic gauche + glisser: Rotation<br>
+                        🖱️ Molette: Zoom<br>
+                        🖱️ Clic droit + glisser: Déplacement
+                    </div>
+                </div>
+                
+                <!-- MESSAGE SI PAS DE DONNÉES -->
+                <div id="noDataMessage" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">📐</div>
+                    <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem;">TopoCAD Pro</h2>
+                    <p style="font-size: 1rem; opacity: 0.8;">Importez un PDF topographique pour commencer</p>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+// ========================================
+// CONFIGURATION GLOBALE
+// ========================================
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ========================================
+// OBJET APPLICATION PRINCIPAL
+// ========================================
+const APP = {
+    // État de l'application
+    state: {
+        pdfData: null,
+        points: [],
+        selectedPoints: [],
+        viewport: null,
+        currentTool: 'view',
+        scene3D: null,
+        camera: null,
+        renderer: null,
+        pointMeshes: [],
+        exaggeration: 2,
+        isSelecting: false,
+        selectionStart: null,
+        profilePoints: []
+    },
+    
+    // Configuration des patterns d'altitude
+    config: {
+        elevationPatterns: [
+            { id: 'ne_equal', name: 'NE = XXX.XXm', regex: /NE\s*=\s*(\d+\.?\d*)\s*m?/gi },
+            { id: 'ne_no_space', name: 'NE=XXX.XXm', regex: /NE=(\d+\.?\d*)\s*m?/gi },
+            { id: 'ngf_equal', name: 'NGF = XXX.XX', regex: /NGF\s*=\s*(\d+\.?\d*)/gi },
+            { id: 'ngf_suffix', name: 'XXX.XX NGF', regex: /(\d+\.?\d*)\s*NGF/gi },
+            { id: 'z_equal', name: 'Z = XXX.XX', regex: /Z\s*=\s*(\d+\.?\d*)/gi },
+            { id: 'z_no_space', name: 'Z=XXX.XX', regex: /Z=(\d+\.?\d*)/gi },
+            { id: 'alt_colon', name: 'Alt: XXX.XX', regex: /Alt\s*:\s*(\d+\.?\d*)/gi },
+            { id: 'altitude', name: 'Altitude XXX.XX', regex: /Altitude\s*[:\s]+(\d+\.?\d*)/gi },
+            { id: 'cote_equal', name: 'Cote = XXX.XX', regex: /Cote\s*=\s*(\d+\.?\d*)/gi },
+            { id: 'cote_colon', name: 'Cote: XXX.XX', regex: /Cote\s*:\s*(\d+\.?\d*)/gi },
+            { id: 'h_equal', name: 'H = XXX.XX', regex: /H\s*=\s*(\d+\.?\d*)/gi },
+            { id: 'elev', name: 'Elev. XXX.XX', regex: /Elev\.?\s*(\d+\.?\d*)/gi },
+            { id: 'meter_suffix', name: 'XXX.XXm', regex: /(\d{2,3}\.\d{1,2})\s*m(?!\d)/gi },
+            { id: 'comma_decimal', name: 'XXX,XXm', regex: /(\d{2,3},\d{1,2})\s*m/gi }
+        ],
+        
+        coordinateSystems: {
+            'lambert93': {
+                name: 'Lambert 93',
+                xPattern: /X\s*[=:]\s*(\d{6,7})/gi,
+                yPattern: /Y\s*[=:]\s*(\d{7,8})/gi
+            },
+            'lambert2e': {
+                name: 'Lambert II étendu',
+                xPattern: /X\s*[=:]\s*(\d{6})/gi,
+                yPattern: /Y\s*[=:]\s*(\d{6,7})/gi
+            },
+            'utm': {
+                name: 'UTM',
+                xPattern: /[EX]\s*[=:]\s*(\d{6})/gi,
+                yPattern: /[NY]\s*[=:]\s*(\d{7})/gi
+            },
+            'wgs84': {
+                name: 'WGS84',
+                xPattern: /Lon[g]?\s*[=:]\s*(\d+\.?\d*)/gi,
+                yPattern: /Lat\s*[=:]\s*(\d+\.?\d*)/gi
+            },
+            'custom': {
+                name: 'Personnalisé',
+                xPattern: /X\s*[=:]\s*(\d+\.?\d*)/gi,
+                yPattern: /Y\s*[=:]\s*(\d+\.?\d*)/gi
+            }
+        }
+    }
+};
+
+// ========================================
+// MODULE: EXTRACTION PDF
+// ========================================
+APP.pdf = {
+    async extract(file) {
+        try {
+            APP.ui.showLoading(true);
+            APP.ui.addDiagnostic('📄 Chargement du PDF...', 'info');
+            
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            const page = await pdf.getPage(1);
+            const textContent = await page.getTextContent();
+            const viewport = page.getViewport({ scale: 1.0 });
+            
+            APP.state.viewport = viewport;
+            APP.ui.addDiagnostic(`✅ PDF chargé: ${textContent.items.length} éléments de texte trouvés`, 'success');
+            
+            // Extraction des points
+            const coordSystem = document.getElementById('coordSystem').value;
+            const points = await this.extractPoints(textContent, coordSystem);
+            
+            APP.state.points = points;
+            APP.state.pdfData = { pdf, page, textContent, viewport };
+            
+            APP.ui.addDiagnostic(`✅ ${points.length} points d'altitude extraits`, 'success');
+            APP.ui.updateStats();
+            APP.viewer3D.init();
+            APP.viewer3D.renderPoints();
+            
+            // Afficher les sections
+            document.getElementById('statsSection').classList.remove('hidden');
+            document.getElementById('params3DSection').classList.remove('hidden');
+            document.getElementById('exportSection').classList.remove('hidden');
+            document.getElementById('noDataMessage').classList.add('hidden');
+            
+            APP.ui.showLoading(false);
+            
+        } catch (error) {
+            APP.ui.addDiagnostic(`❌ Erreur: ${error.message}`, 'error');
+            APP.ui.showLoading(false);
+            alert('Erreur lors du chargement du PDF: ' + error.message);
+        }
+    },
+    
+    async extractPoints(textContent, coordSystemId) {
+        const points = [];
+        const coordSystem = APP.config.coordinateSystems[coordSystemId];
+        const diagnostics = {};
+        
+        // Extraire coordonnées X et Y
+        const coordsX = this.extractCoordinates(textContent, coordSystem.xPattern, 'X');
+        const coordsY = this.extractCoordinates(textContent, coordSystem.yPattern, 'Y');
+        
+        APP.ui.addDiagnostic(`📍 Coordonnées X trouvées: ${coordsX.length}`, 'info');
+        APP.ui.addDiagnostic(`📍 Coordonnées Y trouvées: ${coordsY.length}`, 'info');
+        
+        // Extraire altitudes avec tous les patterns
+        APP.config.elevationPatterns.forEach(pattern => {
+            let matchCount = 0;
+            
+            textContent.items.forEach(item => {
+                const text = item.str;
+                pattern.regex.lastIndex = 0;
+                let match;
+                
+                while ((match = pattern.regex.exec(text)) !== null) {
+                    let elevation = parseFloat(match[1].replace(',', '.'));
+                    
+                    if (elevation < -100 || elevation > 5000) continue;
+                    
+                    const x = item.transform[4];
+                    const y = item.transform[5];
+                    
+                    // Éviter doublons
+                    const exists = points.some(p => 
+                        Math.abs(p.x - x) < 2 && 
+                        Math.abs(p.y - y) < 2
+                    );
+                    
+                    if (!exists) {
+                        const nearestX = this.findNearestCoord(coordsX, x, y);
+                        const nearestY = this.findNearestCoord(coordsY, x, y);
+                        
+                        points.push({
+                            id: `point_${points.length}`,
+                            x: x,
+                            y: y,
+                            elevation: elevation,
+                            lambertX: nearestX?.value || null,
+                            lambertY: nearestY?.value || null,
+                            source: pattern.id,
+                            selected: false
+                        });
+                        
+                        matchCount++;
+                    }
+                }
+            });
+            
+            if (matchCount > 0) {
+                diagnostics[pattern.id] = matchCount;
+                APP.ui.addDiagnostic(`✓ ${pattern.name}: ${matchCount} points`, 'success');
+            }
+        });
+        
+        return points;
+    },
+    
+    extractCoordinates(textContent, pattern, axis) {
+        const coordinates = [];
+        
+        textContent.items.forEach(item => {
+            const text = item.str;
+            pattern.lastIndex = 0;
+            let match;
+            
+            while ((match = pattern.exec(text)) !== null) {
+                const value = parseFloat(match[1]);
+                coordinates.push({
+                    value: value,
+                    x: item.transform[4],
+                    y: item.transform[5]
+                });
+            }
+        });
+        
+        return coordinates;
+    },
+    
+    findNearestCoord(coordinates, x, y, maxDist = 100) {
+        let nearest = null;
+        let minDist = Infinity;
+        
+        coordinates.forEach(coord => {
+            const dist = Math.sqrt(Math.pow(coord.x - x, 2) + Math.pow(coord.y - y, 2));
+            if (dist < minDist && dist < maxDist) {
+                minDist = dist;
+                nearest = coord;
+            }
+        });
+        
+        return nearest;
+    }
+};
+
+// ========================================
+// MODULE: VISUALISATION 3D
+// ========================================
+APP.viewer3D = {
+    init() {
+        const canvas = document.getElementById('canvas3d');
+        const width = canvas.parentElement.offsetWidth;
+        const height = canvas.parentElement.offsetHeight;
+        
+        // Scène
+        APP.state.scene3D = new THREE.Scene();
+        APP.state.scene3D.background = new THREE.Color(0x1f2937);
+        
+        // Caméra
+        APP.state.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 10000);
+        APP.state.camera.position.set(200, 200, 200);
+        APP.state.camera.lookAt(0, 0, 0);
+        
+        // Renderer
+        APP.state.renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        APP.state.renderer.setSize(width, height);
+        APP.state.renderer.setPixelRatio(window.devicePixelRatio);
+        
+        // Lumières
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        APP.state.scene3D.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(100, 200, 100);
+        APP.state.scene3D.add(directionalLight);
+        
+        // Grille
+        this.updateGrid();
+        
+        // Animation
+        this.animate();
+        
+        // Contrôles souris
+        this.setupControls();
+        
+        // Resize
+        window.addEventListener('resize', () => this.handleResize());
+    },
+    
+    renderPoints() {
+        // Supprimer les anciens points
+        APP.state.pointMeshes.forEach(mesh => APP.state.scene3D.remove(mesh));
+        APP.state.pointMeshes = [];
+        
+        if (APP.state.points.length === 0) return;
+        
+        // Calculer le centre et l'échelle
+        const elevations = APP.state.points.map(p => p.elevation);
+        const minElev = Math.min(...elevations);
+        const maxElev = Math.max(...elevations);
+        const avgElev = (minElev + maxElev) / 2;
+        
+        const exag = APP.state.exaggeration;
+        
+        APP.state.points.forEach(point => {
+            // Coordonnées 3D
+            let x3d, y3d;
+            
+            if (point.lambertX && point.lambertY) {
+                // Normaliser les coordonnées Lambert
+                x3d = (point.lambertX - APP.state.points[0].lambertX) / 100;
+                y3d = (point.lambertY - APP.state.points[0].lambertY) / 100;
+            } else {
+                x3d = (point.x - APP.state.viewport.width / 2) / 5;
+                y3d = (APP.state.viewport.height - point.y - APP.state.viewport.height / 2) / 5;
+            }
+            
+            const z3d = (point.elevation - avgElev) * exag;
+            
+            // Créer la sphère
+            const geometry = new THREE.SphereGeometry(2, 16, 16);
+            const material = new THREE.MeshStandardMaterial({
+                color: point.selected ? 0xff6b00 : 0x3b82f6,
+                metalness: 0.3,
+                roughness: 0.4
+            });
+            
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(x3d, z3d, y3d);
+            sphere.userData = { point: point };
+            
+            APP.state.scene3D.add(sphere);
+            APP.state.pointMeshes.push(sphere);
+        });
+        
+        // Ajuster la caméra
+        this.fitCamera();
+    },
+    
+    updateGrid() {
+        // Supprimer ancienne grille
+        const oldGrid = APP.state.scene3D.getObjectByName('grid');
+        if (oldGrid) APP.state.scene3D.remove(oldGrid);
+        
+        if (document.getElementById('showGrid').checked) {
+            const gridHelper = new THREE.GridHelper(500, 50, 0x888888, 0x444444);
+            gridHelper.name = 'grid';
+            APP.state.scene3D.add(gridHelper);
+        }
+    },
+    
+    fitCamera() {
+        if (APP.state.pointMeshes.length === 0) return;
+        
+        const box = new THREE.Box3();
+        APP.state.pointMeshes.forEach(mesh => box.expandByObject(mesh));
+        
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        
+        const distance = maxDim * 2;
+        APP.state.camera.position.set(
+            center.x + distance,
+            center.y + distance,
+            center.z + distance
+        );
+        APP.state.camera.lookAt(center);
+    },
+    
+    animate() {
+        requestAnimationFrame(() => APP.viewer3D.animate());
+        APP.state.renderer.render(APP.state.scene3D, APP.state.camera);
+    },
+    
+    setupControls() {
+        const canvas = document.getElementById('canvas3d');
+        let isDragging = false;
+        let previousMouse = { x: 0, y: 0 };
+        let isRightClick = false;
+        
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            isRightClick = e.button === 2;
+            previousMouse = { x: e.clientX, y: e.clientY };
+            e.preventDefault();
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            const deltaX = e.clientX - previousMouse.x;
+            const deltaY = e.clientY - previousMouse.y;
+            
+            if (isRightClick) {
+                // Pan (déplacement)
+                const distance = APP.state.camera.position.length();
+                const factor = distance * 0.001;
+                
+                const right = new THREE.Vector3();
+                const up = new THREE.Vector3(0, 1, 0);
+                APP.state.camera.getWorldDirection(right);
+                right.cross(up).normalize();
+                
+                APP.state.camera.position.addScaledVector(right, -deltaX * factor);
+                APP.state.camera.position.y += deltaY * factor;
+            } else {
+                // Rotation (orbit)
+                const rotationSpeed = 0.005;
+                
+                const spherical = new THREE.Spherical();
+                spherical.setFromVector3(APP.state.camera.position);
+                
+                spherical.theta -= deltaX * rotationSpeed;
+                spherical.phi -= deltaY * rotationSpeed;
+                spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+                
+                APP.state.camera.position.setFromSpherical(spherical);
+                APP.state.camera.lookAt(0, 0, 0);
+            }
+            
+            previousMouse = { x: e.clientX, y: e.clientY };
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+        
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+        
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomSpeed = 0.1;
+            const distance = APP.state.camera.position.length();
+            const newDistance = distance * (1 + (e.deltaY > 0 ? zoomSpeed : -zoomSpeed));
+            APP.state.camera.position.multiplyScalar(newDistance / distance);
+        });
+    },
+    
+    handleResize() {
+        const canvas = document.getElementById('canvas3d');
+        const width = canvas.parentElement.offsetWidth;
+        const height = canvas.parentElement.offsetHeight;
+        
+        APP.state.camera.aspect = width / height;
+        APP.state.camera.updateProjectionMatrix();
+        APP.state.renderer.setSize(width, height);
+    }
+};
+
+// ========================================
+// MODULE: OUTILS
+// ========================================
+APP.tools = {
+    setTool(toolName) {
+        APP.state.currentTool = toolName;
+        
+        // Mettre à jour l'UI
+        document.querySelectorAll('.btn-tool').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-tool="${toolName}"]`).classList.add('active');
+        
+        APP.ui.addDiagnostic(`🛠️ Outil activé: ${toolName}`, 'info');
+    }
+};
+
+// ========================================
+// MODULE: EXPORT
+// ========================================
+APP.export = {
+    toDXF() {
+        if (APP.state.points.length === 0) {
+            alert('Aucun point à exporter');
+            return;
+        }
+        
+        const pointsToExport = APP.state.selectedPoints.length > 0 
+            ? APP.state.selectedPoints 
+            : APP.state.points;
+        
+        let dxf = this.generateDXFHeader();
+        
+        // Section ENTITIES
+        dxf += "0\nSECTION\n2\nENTITIES\n";
+        
+        // Exporter chaque point
+        pointsToExport.forEach(point => {
+            const x = point.lambertX || point.x;
+            const y = point.lambertY || point.y;
+            const z = point.elevation;
+            
+            dxf += `0\nPOINT\n`;
+            dxf += `8\nPOINTS_TOPO\n`;
+            dxf += `10\n${x.toFixed(3)}\n`;
+            dxf += `20\n${y.toFixed(3)}\n`;
+            dxf += `30\n${z.toFixed(3)}\n`;
+        });
+        
+        dxf += "0\nENDSEC\n0\nEOF\n";
+        
+        this.downloadFile(dxf, 'topocad_export.dxf', 'application/dxf');
+        APP.ui.addDiagnostic(`✅ Export DXF: ${pointsToExport.length} points`, 'success');
+    },
+    
+    toCSV() {
+        if (APP.state.points.length === 0) {
+            alert('Aucun point à exporter');
+            return;
+        }
+        
+        const pointsToExport = APP.state.selectedPoints.length > 0 
+            ? APP.state.selectedPoints 
+            : APP.state.points;
+        
+        let csv = 'ID,X,Y,Z,Lambert_X,Lambert_Y,Source\n';
+        
+        pointsToExport.forEach((point, i) => {
+            csv += `${i + 1},`;
+            csv += `${point.x.toFixed(2)},`;
+            csv += `${point.y.toFixed(2)},`;
+            csv += `${point.elevation.toFixed(2)},`;
+            csv += `${point.lambertX || ''},`;
+            csv += `${point.lambertY || ''},`;
+            csv += `${point.source}\n`;
+        });
+        
+        this.downloadFile(csv, 'topocad_export.csv', 'text/csv');
+        APP.ui.addDiagnostic(`✅ Export CSV: ${pointsToExport.length} points`, 'success');
+    },
+    
+    generateDXFHeader() {
+        return `0\nSECTION\n2\nHEADER\n` +
+               `9\n$ACADVER\n1\nAC1009\n` +
+               `0\nENDSEC\n` +
+               `0\nSECTION\n2\nTABLES\n` +
+               `0\nTABLE\n2\nLAYER\n70\n1\n` +
+               `0\nLAYER\n2\nPOINTS_TOPO\n70\n0\n62\n3\n6\nCONTINUOUS\n` +
+               `0\nENDTAB\n0\nENDSEC\n`;
+    },
+    
+    downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+};
+
+// ========================================
+// MODULE: INTERFACE UTILISATEUR
+// ========================================
+APP.ui = {
+    showLoading(show) {
+        document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
+    },
+    
+    updateStats() {
+        const points = APP.state.points;
+        const selected = APP.state.selectedPoints;
+        
+        document.getElementById('statPoints').textContent = points.length;
+        document.getElementById('statSelected').textContent = selected.length;
+        
+        if (points.length > 0) {
+            const elevations = points.map(p => p.elevation);
+            document.getElementById('statMinElev').textContent = Math.min(...elevations).toFixed(2) + 'm';
+            document.getElementById('statMaxElev').textContent = Math.max(...elevations).toFixed(2) + 'm';
+        }
+    },
+    
+    addDiagnostic(message, type = 'info') {
+        const content = document.getElementById('diagnosticContent');
+        const timestamp = new Date().toLocaleTimeString();
+        const className = `diagnostic-${type}`;
+        
+        const line = document.createElement('div');
+        line.className = className;
+        line.textContent = `[${timestamp}] ${message}`;
+        
+        content.appendChild(line);
+        content.scrollTop = content.scrollHeight;
+    },
+    
+    toggleDiagnostic() {
+        const panel = document.getElementById('diagnosticPanel');
+        const button = document.getElementById('diagnosticToggleText');
+        
+        panel.classList.toggle('hidden');
+        button.textContent = panel.classList.contains('hidden') 
+            ? 'Afficher diagnostic' 
+            : 'Masquer diagnostic';
+    },
+    
+    showHelp() {
+        alert(
+            'TopoCAD Pro v1.0 - Guide Rapide\n\n' +
+            '1. IMPORT: Glissez votre PDF topographique\n' +
+            '2. SYSTÈME: Choisissez le système de coordonnées\n' +
+            '3. VISUALISATION: Naviguez dans la vue 3D\n' +
+            '4. SÉLECTION: Utilisez l\'outil rectangle (à venir)\n' +
+            '5. EXPORT: Exportez en DXF pour AutoCAD\n\n' +
+            'Contrôles 3D:\n' +
+            '- Clic gauche + glisser: Rotation\n' +
+            '- Clic droit + glisser: Déplacement\n' +
+            '- Molette: Zoom\n\n' +
+            'Support: github.com/votre-repo'
+        );
+    }
+};
+
+// ========================================
+// INITIALISATION DE L'APPLICATION
+// ========================================
+document.addEventListener('DOMContentLoaded', () => {
+    APP.ui.addDiagnostic('🚀 TopoCAD Pro v1.0 initialisé', 'success');
+    
+    // Import PDF
+    const pdfInput = document.getElementById('pdfInput');
+    const dropzone = document.getElementById('dropzone');
+    
+    pdfInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            APP.pdf.extract(e.target.files[0]);
+        }
+    });
+    
+    dropzone.addEventListener('click', () => {
+        pdfInput.click();
+    });
+    
+    // Drag & Drop
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+    
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+    });
+    
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        
+        if (e.dataTransfer.files.length > 0) {
+            APP.pdf.extract(e.dataTransfer.files[0]);
+        }
+    });
+    
+    // Contrôles 3D
+    document.getElementById('exagSlider').addEventListener('input', (e) => {
+        APP.state.exaggeration = parseFloat(e.target.value);
+        document.getElementById('exagValue').textContent = e.target.value + 'x';
+        
+        if (APP.state.points.length > 0) {
+            APP.viewer3D.renderPoints();
+        }
+    });
+    
+    document.getElementById('showGrid').addEventListener('change', () => {
+        if (APP.state.scene3D) {
+            APP.viewer3D.updateGrid();
+        }
+    });
+});
+    </script>
+</body>
+</html>
