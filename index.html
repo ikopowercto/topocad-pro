@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TopoCAD Pro v1.2.1 - Import DXF Robuste</title>
+    <title>TopoCAD Pro v1.3 - Support Complet DXF</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -22,16 +22,14 @@
         #canvas3d { width: 100%; height: 100%; display: block; }
         .btn { padding: 0.625rem 1.25rem; border-radius: 0.5rem; border: none; font-weight: 500; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
         .btn-primary { background: #3b82f6; color: white; }
-        .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+        .btn-primary:hover { background: #2563eb; }
         .btn-success { background: #10b981; color: white; }
-        .btn-success:hover { background: #059669; }
         .btn-secondary { background: #6b7280; color: white; }
-        .btn-warning { background: #f59e0b; color: white; }
         .input-group { margin-bottom: 1rem; }
         .input-label { display: block; font-size: 0.875rem; font-weight: 500; color: #374151; margin-bottom: 0.5rem; }
-        select, input[type="range"] { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; }
+        input[type="range"] { width: 100%; }
         .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1rem; border-radius: 0.5rem; color: white; margin-bottom: 0.75rem; }
-        .stat-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .stat-value { font-size: 1.5rem; font-weight: 700; }
         .stat-label { font-size: 0.75rem; opacity: 0.9; }
         .diagnostic-panel { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; max-height: 400px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.75rem; }
         .diagnostic-success { color: #059669; }
@@ -45,10 +43,6 @@
         .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
         .spinner { border: 3px solid #f3f4f6; border-top: 3px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .alert { padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; font-size: 0.875rem; }
-        .alert-info { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
-        .alert-warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
     </style>
 </head>
 <body>
@@ -58,8 +52,8 @@
                 <div class="logo">
                     <div class="logo-icon">📐</div>
                     <div>
-                        <h1 style="font-size: 1.5rem; font-weight: 700;">TopoCAD Pro v1.2.1</h1>
-                        <p style="font-size: 0.875rem; opacity: 0.9;">Import DXF Robuste - Tous Formats</p>
+                        <h1 style="font-size: 1.5rem; font-weight: 700;">TopoCAD Pro v1.3</h1>
+                        <p style="font-size: 0.875rem; opacity: 0.9;">Support POLYLINE/VERTEX Complet</p>
                     </div>
                 </div>
             </div>
@@ -68,34 +62,23 @@
         <div class="main-content">
             <aside class="sidebar">
                 <div class="sidebar-section">
-                    <h2 class="section-title">📥 Import Fichier DXF</h2>
-                    
-                    <div class="alert alert-info" style="margin-bottom: 1rem;">
-                        <strong>✅ Formats supportés:</strong><br>
-                        • DXF ASCII (R12, R14, R2000, R2004, R2007, R2010, R2013, R2018)<br>
-                        • Exporté depuis AutoCAD, LibreCAD, DraftSight, etc.
-                    </div>
-                    
+                    <h2 class="section-title">📥 Import DXF</h2>
                     <div class="dropzone" id="dropzone">
                         <div style="font-size: 3rem; margin-bottom: 1rem;">📁</div>
-                        <p style="font-weight: 600; margin-bottom: 0.5rem;">Glissez votre fichier DXF ici</p>
-                        <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 1rem;">Fichier .dxf uniquement (ASCII)</p>
+                        <p style="font-weight: 600; margin-bottom: 0.5rem;">Glissez votre DXF ici</p>
                         <input type="file" id="fileInput" accept=".dxf" class="hidden">
-                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📁 Choisir un fichier DXF</button>
+                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📁 Choisir DXF</button>
                     </div>
-                    
-                    <div id="errorAlert" class="alert alert-error hidden" style="margin-top: 1rem;"></div>
-                    
                     <div id="loadingIndicator" class="hidden" style="margin-top: 1rem;">
                         <div class="spinner"></div>
-                        <p style="text-align: center; margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">Analyse du fichier...</p>
+                        <p style="text-align: center; margin-top: 0.5rem; font-size: 0.875rem;">Chargement...</p>
                     </div>
                 </div>
                 
                 <div class="sidebar-section">
-                    <h2 class="section-title">🔍 Diagnostic (Toujours Visible)</h2>
+                    <h2 class="section-title">🔍 Diagnostic</h2>
                     <div id="diagnosticPanel" class="diagnostic-panel">
-                        <div id="diagnosticContent">🚀 TopoCAD Pro v1.2.1 - Prêt<br>📖 Importez un fichier DXF pour commencer</div>
+                        <div id="diagnosticContent">🚀 TopoCAD Pro v1.3 - Prêt</div>
                     </div>
                 </div>
                 
@@ -103,18 +86,18 @@
                     <h2 class="section-title">📊 Statistiques</h2>
                     <div class="grid-2">
                         <div class="stat-card">
-                            <div class="stat-value" id="statEntities">0</div>
-                            <div class="stat-label">Entités</div>
+                            <div class="stat-value" id="statPolylines">0</div>
+                            <div class="stat-label">Polylignes</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-value" id="statPoints">0</div>
-                            <div class="stat-label">Points altitude</div>
+                            <div class="stat-value" id="statVertices">0</div>
+                            <div class="stat-label">Vertices 3D</div>
                         </div>
                     </div>
                     <div class="stat-card">
                         <div style="display: flex; justify-content: space-between;">
-                            <div><strong>Min:</strong> <span id="statMinElev">-</span></div>
-                            <div><strong>Max:</strong> <span id="statMaxElev">-</span></div>
+                            <div><strong>Min:</strong> <span id="statMinZ">-</span></div>
+                            <div><strong>Max:</strong> <span id="statMaxZ">-</span></div>
                         </div>
                     </div>
                 </div>
@@ -143,9 +126,8 @@
                 <canvas id="canvas3d"></canvas>
                 <div id="noDataMessage" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white;">
                     <div style="font-size: 4rem; margin-bottom: 1rem;">📐</div>
-                    <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem;">TopoCAD Pro v1.2.1</h2>
-                    <p style="font-size: 1rem; opacity: 0.8;">Importez un fichier DXF</p>
-                    <p style="font-size: 0.875rem; opacity: 0.6; margin-top: 1rem;">Formats: R12, R14, R2000, R2004, R2007, R2010+</p>
+                    <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem;">TopoCAD Pro v1.3</h2>
+                    <p style="font-size: 1rem; opacity: 0.8;">Importez votre fichier DXF</p>
                 </div>
             </div>
         </div>
@@ -154,8 +136,8 @@
     <script>
 const APP = {
     state: {
-        entities: [],
-        points: [],
+        polylines: [],
+        vertices: [],
         scene: null,
         camera: null,
         renderer: null,
@@ -166,88 +148,125 @@ const APP = {
     async loadFile(file) {
         try {
             this.showLoading(true);
-            this.showError('');
-            this.log(`📂 Chargement de ${file.name} (${(file.size/1024).toFixed(1)} KB)`, 'info');
+            this.log(`📂 Chargement ${file.name} (${(file.size/1024/1024).toFixed(1)} MB)`, 'info');
             
             const text = await file.text();
-            this.log(`✅ Fichier lu: ${text.length} caractères`, 'success');
+            this.log(`✅ Fichier lu: ${(text.length/1024).toFixed(0)} KB`, 'success');
             
-            // Vérification basique
-            if (!text.includes('SECTION') && !text.includes('ENTITIES')) {
-                throw new Error('Fichier DXF invalide: pas de section ENTITIES trouvée');
-            }
-            
-            this.log(`🔍 Analyse du contenu DXF...`, 'info');
-            this.parseDXFManual(text);
-            
+            this.parseDXF(text);
             this.showLoading(false);
         } catch (error) {
             this.log(`❌ ERREUR: ${error.message}`, 'error');
-            this.showError(error.message);
             this.showLoading(false);
         }
     },
     
-    parseDXFManual(text) {
-        this.log(`📊 Parsing manuel du DXF...`, 'info');
+    parseDXF(text) {
+        this.log(`🔍 Parsing DXF...`, 'info');
         
-        const lines = text.split('\n').map(l => l.trim());
-        this.state.entities = [];
-        this.state.points = [];
+        // Supprimer les \r et split par lignes
+        const lines = text.replace(/\r/g, '').split('\n').map(l => l.trim());
+        
+        this.state.polylines = [];
+        this.state.vertices = [];
         
         let inEntities = false;
-        let currentEntity = null;
+        let currentPolyline = null;
+        let currentVertex = null;
         let groupCode = null;
+        let i = 0;
         
-        for (let i = 0; i < lines.length; i++) {
+        while (i < lines.length) {
             const line = lines[i];
             
             // Détection section ENTITIES
             if (line === 'ENTITIES') {
                 inEntities = true;
                 this.log(`✓ Section ENTITIES trouvée`, 'success');
+                i++;
                 continue;
             }
             
             if (line === 'ENDSEC' && inEntities) {
-                inEntities = false;
+                // Finaliser la dernière polyline
+                if (currentPolyline && currentPolyline.vertices.length > 0) {
+                    this.state.polylines.push(currentPolyline);
+                }
+                break;
+            }
+            
+            if (!inEntities) {
+                i++;
                 continue;
             }
             
-            if (!inEntities) continue;
-            
             // Lecture par paires (code, valeur)
-            if (i % 2 === 0) {
-                groupCode = line;
-            } else {
-                const value = line;
+            if (i + 1 < lines.length) {
+                groupCode = lines[i];
+                const value = lines[i + 1];
                 
-                // Nouvelle entité
-                if (groupCode === '0') {
-                    if (currentEntity) {
-                        this.processEntity(currentEntity);
+                // Code 0 = nouvelle entité
+                if (groupCode.trim() === '0') {
+                    const entityType = value.trim();
+                    
+                    if (entityType === 'POLYLINE') {
+                        // Sauvegarder la polyline précédente
+                        if (currentPolyline && currentPolyline.vertices.length > 0) {
+                            this.state.polylines.push(currentPolyline);
+                        }
+                        
+                        currentPolyline = {
+                            type: 'POLYLINE',
+                            layer: '',
+                            vertices: []
+                        };
                     }
-                    currentEntity = { type: value, data: {} };
-                } else if (currentEntity) {
-                    // Stocker la donnée
-                    if (!currentEntity.data[groupCode]) {
-                        currentEntity.data[groupCode] = [];
+                    else if (entityType === 'VERTEX') {
+                        currentVertex = { x: 0, y: 0, z: 0 };
                     }
-                    currentEntity.data[groupCode].push(value);
+                    else if (entityType === 'SEQEND') {
+                        // Fin de la polyline
+                        if (currentPolyline && currentPolyline.vertices.length > 0) {
+                            this.state.polylines.push(currentPolyline);
+                        }
+                        currentPolyline = null;
+                    }
                 }
+                // Layer
+                else if (groupCode.trim() === '8') {
+                    if (currentPolyline) {
+                        currentPolyline.layer = value;
+                    }
+                }
+                // Coordonnées VERTEX
+                else if (currentVertex) {
+                    if (groupCode.trim() === '10') {
+                        currentVertex.x = parseFloat(value);
+                    } else if (groupCode.trim() === '20') {
+                        currentVertex.y = parseFloat(value);
+                    } else if (groupCode.trim() === '30') {
+                        currentVertex.z = parseFloat(value);
+                        
+                        // Vertex complet, l'ajouter
+                        if (currentPolyline) {
+                            currentPolyline.vertices.push({...currentVertex});
+                            this.state.vertices.push({...currentVertex});
+                        }
+                        currentVertex = null;
+                    }
+                }
+                
+                i += 2; // Avancer de 2 lignes (code + valeur)
+            } else {
+                i++;
             }
         }
         
-        // Traiter la dernière entité
-        if (currentEntity) {
-            this.processEntity(currentEntity);
-        }
+        this.log(`✅ ${this.state.polylines.length} polylignes trouvées`, 'success');
+        this.log(`✅ ${this.state.vertices.length} vertices 3D extraits`, 'success');
         
-        this.log(`✅ ${this.state.entities.length} entités trouvées`, 'success');
-        this.log(`✅ ${this.state.points.length} points d'altitude extraits`, 'success');
-        
-        if (this.state.entities.length === 0) {
-            throw new Error('Aucune entité trouvée dans le DXF. Vérifiez le format.');
+        if (this.state.vertices.length === 0) {
+            this.log(`⚠️ Aucun vertex 3D (Z) trouvé`, 'warning');
         }
         
         this.updateStats();
@@ -258,109 +277,6 @@ const APP = {
         document.getElementById('params3DSection').classList.remove('hidden');
         document.getElementById('exportSection').classList.remove('hidden');
         document.getElementById('noDataMessage').classList.add('hidden');
-    },
-    
-    processEntity(entity) {
-        const type = entity.type;
-        const data = entity.data;
-        
-        // Extraire coordonnées selon le type
-        if (type === 'LINE') {
-            const x1 = parseFloat(data['10']?.[0] || 0);
-            const y1 = parseFloat(data['20']?.[0] || 0);
-            const x2 = parseFloat(data['11']?.[0] || 0);
-            const y2 = parseFloat(data['21']?.[0] || 0);
-            
-            this.state.entities.push({
-                type: 'LINE',
-                vertices: [{x: x1, y: y1}, {x: x2, y: y2}]
-            });
-        }
-        else if (type === 'LWPOLYLINE' || type === 'POLYLINE') {
-            // Polylignes complexes - simplifié
-            const vertices = [];
-            const xs = data['10'] || [];
-            const ys = data['20'] || [];
-            
-            for (let i = 0; i < Math.min(xs.length, ys.length); i++) {
-                vertices.push({
-                    x: parseFloat(xs[i]),
-                    y: parseFloat(ys[i])
-                });
-            }
-            
-            if (vertices.length > 0) {
-                this.state.entities.push({ type: 'POLYLINE', vertices });
-            }
-        }
-        else if (type === 'CIRCLE') {
-            const x = parseFloat(data['10']?.[0] || 0);
-            const y = parseFloat(data['20']?.[0] || 0);
-            const r = parseFloat(data['40']?.[0] || 1);
-            
-            this.state.entities.push({
-                type: 'CIRCLE',
-                center: {x, y},
-                radius: r
-            });
-        }
-        else if (type === 'TEXT' || type === 'MTEXT') {
-            const text = data['1']?.[0] || '';
-            const x = parseFloat(data['10']?.[0] || 0);
-            const y = parseFloat(data['20']?.[0] || 0);
-            
-            this.state.entities.push({
-                type: 'TEXT',
-                text: text,
-                position: {x, y}
-            });
-            
-            // Extraire altitude
-            this.extractElevation(text, x, y);
-        }
-        else if (type === 'POINT') {
-            const x = parseFloat(data['10']?.[0] || 0);
-            const y = parseFloat(data['20']?.[0] || 0);
-            const z = parseFloat(data['30']?.[0] || 0);
-            
-            if (z > 0) {
-                this.state.points.push({
-                    x, y, z,
-                    elevation: z,
-                    source: 'POINT entity'
-                });
-            }
-        }
-    },
-    
-    extractElevation(text, x, y) {
-        const patterns = [
-            { name: 'NE=XXX', regex: /NE\s*=\s*(\d{1,3}[.,]\d{1,2})/i },
-            { name: 'NGF=XXX', regex: /NGF\s*=\s*(\d{1,3}[.,]\d{1,2})/i },
-            { name: 'Z=XXX', regex: /Z\s*=\s*(\d{1,3}[.,]\d{1,2})/i },
-            { name: 'XXX.XX', regex: /^(\d{1,3}[.,]\d{1,2})$/ },
-            { name: 'XXX.XXm', regex: /(\d{1,3}[.,]\d{1,2})\s*m/i }
-        ];
-        
-        for (const pattern of patterns) {
-            const match = text.match(pattern.regex);
-            if (match) {
-                const elevStr = match[1].replace(',', '.');
-                const elevation = parseFloat(elevStr);
-                
-                if (elevation > 0 && elevation < 5000) {
-                    this.state.points.push({
-                        x, y,
-                        z: elevation,
-                        elevation,
-                        text,
-                        source: pattern.name
-                    });
-                    this.log(`✓ Altitude: "${text}" = ${elevation}m`, 'success');
-                    break;
-                }
-            }
-        }
     },
     
     init3D() {
@@ -377,7 +293,7 @@ const APP = {
         this.state.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
         this.state.renderer.setSize(width, height);
         
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         this.state.scene.add(ambientLight);
         
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -398,63 +314,68 @@ const APP = {
         
         const exag = this.state.exaggeration;
         
-        // Calculer altitude moyenne
-        let avgElev = 0;
-        if (this.state.points.length > 0) {
-            avgElev = this.state.points.reduce((sum, p) => sum + p.elevation, 0) / this.state.points.length;
-        }
+        // Calculer Z moyen
+        let minZ = Infinity, maxZ = -Infinity;
+        this.state.vertices.forEach(v => {
+            if (v.z < minZ) minZ = v.z;
+            if (v.z > maxZ) maxZ = v.z;
+        });
+        const avgZ = (minZ + maxZ) / 2;
         
-        this.log(`📐 Rendu 3D: ${this.state.entities.length} entités, exag ${exag}x`, 'info');
+        this.log(`📐 Rendu: Z min=${minZ.toFixed(2)}, max=${maxZ.toFixed(2)}, avg=${avgZ.toFixed(2)}`, 'info');
         
-        // Rendu entités
-        this.state.entities.forEach(entity => {
-            if (entity.type === 'LINE') {
-                const points = [
-                    new THREE.Vector3(entity.vertices[0].x, 0, entity.vertices[0].y),
-                    new THREE.Vector3(entity.vertices[1].x, 0, entity.vertices[1].y)
-                ];
-                const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-                const line = new THREE.Line(geometry, material);
-                this.state.scene.add(line);
-                this.state.meshes.push(line);
-            }
-            else if (entity.type === 'POLYLINE') {
-                const points = entity.vertices.map(v => new THREE.Vector3(v.x, 0, v.y));
-                const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-                const line = new THREE.Line(geometry, material);
-                this.state.scene.add(line);
-                this.state.meshes.push(line);
-            }
-            else if (entity.type === 'CIRCLE') {
-                const curve = new THREE.EllipseCurve(
-                    entity.center.x, entity.center.y,
-                    entity.radius, entity.radius,
-                    0, 2 * Math.PI, false, 0
-                );
-                const points = curve.getPoints(50).map(p => new THREE.Vector3(p.x, 0, p.y));
-                const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                const material = new THREE.LineBasicMaterial({ color: 0x00ffff });
-                const line = new THREE.LineLoop(geometry, material);
-                this.state.scene.add(line);
-                this.state.meshes.push(line);
+        // Calculer offset X,Y pour centrer
+        const allX = this.state.vertices.map(v => v.x);
+        const allY = this.state.vertices.map(v => v.y);
+        const minX = Math.min(...allX);
+        const minY = Math.min(...allY);
+        const offsetX = minX;
+        const offsetY = minY;
+        
+        this.log(`📐 Offset: X=${offsetX.toFixed(0)}, Y=${offsetY.toFixed(0)}`, 'info');
+        
+        // Rendu des polylignes
+        this.state.polylines.forEach((polyline, idx) => {
+            if (polyline.vertices.length < 2) return;
+            
+            const points = polyline.vertices.map(v => {
+                const x3d = v.x - offsetX;
+                const y3d = v.y - offsetY;
+                const z3d = (v.z - avgZ) * exag;
+                return new THREE.Vector3(x3d, z3d, y3d);
+            });
+            
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ 
+                color: this.getColorForLayer(polyline.layer),
+                linewidth: 1
+            });
+            const line = new THREE.Line(geometry, material);
+            this.state.scene.add(line);
+            this.state.meshes.push(line);
+            
+            if (idx % 100 === 0) {
+                this.log(`  Rendu polyline ${idx+1}/${this.state.polylines.length}`, 'info');
             }
         });
         
-        // Rendu points
-        this.state.points.forEach(point => {
-            const geometry = new THREE.SphereGeometry(5, 16, 16);
-            const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-            const z3d = (point.elevation - avgElev) * exag;
-            const sphere = new THREE.Mesh(geometry, material);
-            sphere.position.set(point.x, z3d, point.y);
-            this.state.scene.add(sphere);
-            this.state.meshes.push(sphere);
-        });
+        this.log(`✅ ${this.state.meshes.length} polylignes rendues`, 'success');
         
         this.fitCamera();
-        this.log(`✅ Rendu 3D terminé`, 'success');
+    },
+    
+    getColorForLayer(layer) {
+        const colors = {
+            'AVAL_MNT': 0x00ff00,
+            'AMONT_MNT': 0x00ffff,
+            'TN_': 0xffff00,
+            'default': 0x888888
+        };
+        
+        for (const key in colors) {
+            if (layer.includes(key)) return colors[key];
+        }
+        return colors.default;
     },
     
     setupControls() {
@@ -523,24 +444,34 @@ const APP = {
     },
     
     exportDXF() {
-        if (!this.state.points.length) return alert('Aucun point à exporter');
+        if (!this.state.vertices.length) return alert('Aucun vertex à exporter');
+        
         let dxf = "0\nSECTION\n2\nENTITIES\n";
-        this.state.points.forEach(p => {
-            dxf += `0\nPOINT\n8\nPOINTS_3D\n10\n${p.x.toFixed(3)}\n20\n${p.y.toFixed(3)}\n30\n${p.z.toFixed(3)}\n`;
+        
+        this.state.polylines.forEach(poly => {
+            dxf += `0\nPOLYLINE\n8\n${poly.layer}\n66\n1\n`;
+            poly.vertices.forEach(v => {
+                dxf += `0\nVERTEX\n8\n${poly.layer}\n10\n${v.x.toFixed(3)}\n20\n${v.y.toFixed(3)}\n30\n${v.z.toFixed(3)}\n`;
+            });
+            dxf += `0\nSEQEND\n`;
         });
+        
         dxf += "0\nENDSEC\n0\nEOF\n";
+        
         this.downloadFile(dxf, 'topocad_3d.dxf', 'application/dxf');
-        this.log(`✅ Export DXF: ${this.state.points.length} points`, 'success');
+        this.log(`✅ Export DXF: ${this.state.polylines.length} polylignes`, 'success');
     },
     
     exportCSV() {
-        if (!this.state.points.length) return alert('Aucun point à exporter');
-        let csv = 'ID,X,Y,Z,Text,Source\n';
-        this.state.points.forEach((p, i) => {
-            csv += `${i+1},${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)},"${p.text || ''}",${p.source}\n`;
+        if (!this.state.vertices.length) return alert('Aucun vertex à exporter');
+        
+        let csv = 'ID,X,Y,Z\n';
+        this.state.vertices.forEach((v, i) => {
+            csv += `${i+1},${v.x.toFixed(3)},${v.y.toFixed(3)},${v.z.toFixed(3)}\n`;
         });
-        this.downloadFile(csv, 'topocad_points.csv', 'text/csv');
-        this.log(`✅ Export CSV: ${this.state.points.length} points`, 'success');
+        
+        this.downloadFile(csv, 'topocad_vertices.csv', 'text/csv');
+        this.log(`✅ Export CSV: ${this.state.vertices.length} vertices`, 'success');
     },
     
     downloadFile(content, filename, mimeType) {
@@ -554,31 +485,18 @@ const APP = {
     },
     
     updateStats() {
-        document.getElementById('statEntities').textContent = this.state.entities.length;
-        document.getElementById('statPoints').textContent = this.state.points.length;
-        if (this.state.points.length) {
-            const elevs = this.state.points.map(p => p.elevation);
-            document.getElementById('statMinElev').textContent = Math.min(...elevs).toFixed(2) + 'm';
-            document.getElementById('statMaxElev').textContent = Math.max(...elevs).toFixed(2) + 'm';
+        document.getElementById('statPolylines').textContent = this.state.polylines.length;
+        document.getElementById('statVertices').textContent = this.state.vertices.length;
+        
+        if (this.state.vertices.length) {
+            const zValues = this.state.vertices.map(v => v.z);
+            document.getElementById('statMinZ').textContent = Math.min(...zValues).toFixed(2) + 'm';
+            document.getElementById('statMaxZ').textContent = Math.max(...zValues).toFixed(2) + 'm';
         }
     },
     
     showLoading(show) {
         document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
-    },
-    
-    showError(message) {
-        const alert = document.getElementById('errorAlert');
-        if (message) {
-            alert.innerHTML = `<strong>❌ Erreur:</strong><br>${message}<br><br>
-            <strong>Solutions:</strong><br>
-            • Vérifiez que c'est un fichier DXF ASCII<br>
-            • Réexportez depuis AutoCAD: "Enregistrer sous → DXF R2018"<br>
-            • Essayez avec LibreCAD`;
-            alert.classList.remove('hidden');
-        } else {
-            alert.classList.add('hidden');
-        }
     },
     
     log(message, type = 'info') {
@@ -595,7 +513,7 @@ const APP = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    APP.log('🚀 TopoCAD Pro v1.2.1 - Parser DXF robuste', 'success');
+    APP.log('🚀 TopoCAD Pro v1.3 - Support POLYLINE/VERTEX', 'success');
     
     const fileInput = document.getElementById('fileInput');
     const dropzone = document.getElementById('dropzone');
@@ -609,9 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         dropzone.classList.add('active');
     });
-    dropzone.addEventListener('dragleave', () => {
-        dropzone.classList.remove('active');
-    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('active'));
     dropzone.addEventListener('drop', (e) => {
         e.preventDefault();
         dropzone.classList.remove('active');
@@ -621,7 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('exagSlider').addEventListener('input', (e) => {
         document.getElementById('exagValue').textContent = e.target.value + 'x';
         APP.state.exaggeration = parseFloat(e.target.value);
-        if (APP.state.entities.length) APP.render3D();
+        if (APP.state.polylines.length) APP.render3D();
     });
     
     document.getElementById('showGrid').addEventListener('change', (e) => {
