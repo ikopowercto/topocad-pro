@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TopoCAD Pro v1.1 - Traitement Topographique Professionnel</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <title>TopoCAD Pro v1.2 - Import DXF/DWG</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/dxf-parser@1.5.0/dist/dxf-parser.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; overflow: hidden; background: #f3f4f6; }
         .app-container { display: flex; flex-direction: column; height: 100vh; }
         .main-content { display: flex; flex: 1; overflow: hidden; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .header-content { display: flex; align-items: center; justify-content: space-between; }
         .logo { display: flex; align-items: center; gap: 1rem; }
         .logo-icon { width: 40px; height: 40px; background: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
@@ -20,8 +20,7 @@
         .sidebar-section { padding: 1.5rem; border-bottom: 1px solid #e5e7eb; }
         .section-title { font-size: 0.875rem; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
         .viewer-container { flex: 1; position: relative; background: #1f2937; }
-        #pdfCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.3; }
-        #canvas3d { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #canvas3d { width: 100%; height: 100%; display: block; }
         .btn { padding: 0.625rem 1.25rem; border-radius: 0.5rem; border: none; font-weight: 500; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
         .btn-primary { background: #3b82f6; color: white; }
         .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
@@ -38,14 +37,17 @@
         .stat-label { font-size: 0.75rem; opacity: 0.9; }
         .diagnostic-panel { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.75rem; }
         .diagnostic-success { color: #059669; }
+        .diagnostic-info { color: #3b82f6; }
         .diagnostic-warning { color: #f59e0b; }
         .diagnostic-error { color: #dc2626; }
         .dropzone { border: 2px dashed #d1d5db; border-radius: 0.5rem; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s; background: #f9fafb; }
         .dropzone:hover { border-color: #3b82f6; background: #eff6ff; }
+        .dropzone.active { border-color: #3b82f6; background: #dbeafe; }
         .hidden { display: none !important; }
         .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
-        .selection-rect { position: absolute; border: 2px solid #3b82f6; background: rgba(59, 130, 246, 0.1); pointer-events: none; }
-        .profile-overlay { position: absolute; bottom: 20px; left: 20px; right: 20px; background: rgba(255,255,255,0.95); padding: 1rem; border-radius: 0.5rem; max-height: 300px; }
+        .spinner { border: 3px solid #f3f4f6; border-top: 3px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .overlay { position: absolute; top: 1rem; right: 1rem; background: rgba(255,255,255,0.95); padding: 1rem; border-radius: 0.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.1); font-size: 0.75rem; }
     </style>
 </head>
 <body>
@@ -55,59 +57,62 @@
                 <div class="logo">
                     <div class="logo-icon">📐</div>
                     <div>
-                        <h1 style="font-size: 1.5rem; font-weight: 700;">TopoCAD Pro v1.1</h1>
-                        <p style="font-size: 0.875rem; opacity: 0.9;">Traitement Topographique Avancé</p>
+                        <h1 style="font-size: 1.5rem; font-weight: 700;">TopoCAD Pro v1.2</h1>
+                        <p style="font-size: 0.875rem; opacity: 0.9;">Import DXF/DWG - Traitement Topographique</p>
                     </div>
                 </div>
+                <button class="btn btn-primary" onclick="APP.showHelp()">❓ Aide</button>
             </div>
         </header>
         
         <div class="main-content">
             <aside class="sidebar">
                 <div class="sidebar-section">
-                    <h2 class="section-title">📥 Import PDF</h2>
+                    <h2 class="section-title">📥 Import Fichier</h2>
                     <div class="dropzone" id="dropzone">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
-                        <p style="font-weight: 600; margin-bottom: 0.5rem;">Glissez votre PDF ici</p>
-                        <input type="file" id="pdfInput" accept=".pdf" class="hidden">
-                        <button class="btn btn-primary" onclick="document.getElementById('pdfInput').click()">📁 Choisir un fichier</button>
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📁</div>
+                        <p style="font-weight: 600; margin-bottom: 0.5rem;">Glissez votre fichier ici</p>
+                        <p style="font-size: 0.75rem; color: #6b7280; margin-bottom: 1rem;">DXF ou DWG acceptés</p>
+                        <input type="file" id="fileInput" accept=".dxf,.dwg" class="hidden">
+                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📁 Choisir un fichier</button>
                     </div>
-                    <div class="input-group" style="margin-top: 1rem;">
-                        <label class="input-label">Système de coordonnées</label>
-                        <select id="coordSystem">
-                            <option value="lambert93">Lambert 93</option>
-                            <option value="lambert2e">Lambert II étendu</option>
-                            <option value="utm">UTM</option>
-                            <option value="custom">Personnalisé</option>
-                        </select>
+                    <div id="loadingIndicator" class="hidden" style="margin-top: 1rem;">
+                        <div class="spinner"></div>
+                        <p style="text-align: center; margin-top: 0.5rem; font-size: 0.875rem; color: #6b7280;">Chargement...</p>
                     </div>
                 </div>
                 
                 <div class="sidebar-section">
                     <h2 class="section-title">🛠️ Outils</h2>
-                    <button class="btn-tool active" data-tool="view" onclick="APP.setTool('view')">👁️ Navigation</button>
-                    <button class="btn-tool" data-tool="select" onclick="APP.setTool('select')">⬜ Sélection rectangle</button>
-                    <button class="btn-tool" data-tool="profile" onclick="APP.setTool('profile')">📊 Profil en long</button>
+                    <button class="btn-tool active" data-tool="view" onclick="APP.setTool('view')">👁️ Navigation 3D</button>
+                    <button class="btn-tool" data-tool="select" onclick="APP.setTool('select')">⬜ Sélection</button>
+                    <button class="btn-tool" data-tool="measure" onclick="APP.setTool('measure')">📏 Mesure</button>
                 </div>
                 
                 <div class="sidebar-section hidden" id="statsSection">
                     <h2 class="section-title">📊 Statistiques</h2>
                     <div class="grid-2">
                         <div class="stat-card">
-                            <div class="stat-value" id="statPoints">0</div>
-                            <div class="stat-label">Points extraits</div>
+                            <div class="stat-value" id="statEntities">0</div>
+                            <div class="stat-label">Entités</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-value" id="statSelected">0</div>
-                            <div class="stat-label">Sélectionnés</div>
+                            <div class="stat-value" id="statPoints">0</div>
+                            <div class="stat-label">Points altimétriques</div>
                         </div>
                     </div>
                     <div class="stat-card">
+                        <div class="stat-label" style="margin-bottom: 0.5rem;">Altitude</div>
                         <div style="display: flex; justify-content: space-between;">
                             <div><strong>Min:</strong> <span id="statMinElev">-</span></div>
                             <div><strong>Max:</strong> <span id="statMaxElev">-</span></div>
                         </div>
                     </div>
+                </div>
+                
+                <div class="sidebar-section hidden" id="layersSection">
+                    <h2 class="section-title">📋 Layers</h2>
+                    <div id="layersList" style="max-height: 200px; overflow-y: auto;"></div>
                 </div>
                 
                 <div class="sidebar-section hidden" id="params3DSection">
@@ -117,15 +122,22 @@
                         <input type="range" id="exagSlider" min="1" max="10" value="2" step="0.5">
                     </div>
                     <div class="input-group">
-                        <label class="input-label">Opacité PDF: <span id="opacityValue">30%</span></label>
-                        <input type="range" id="opacitySlider" min="0" max="100" value="30" step="5">
+                        <label class="input-label">
+                            <input type="checkbox" id="showGrid" checked> Afficher la grille
+                        </label>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">
+                            <input type="checkbox" id="showAxes" checked> Afficher les axes
+                        </label>
                     </div>
                 </div>
                 
                 <div class="sidebar-section hidden" id="exportSection">
                     <h2 class="section-title">💾 Export</h2>
-                    <button class="btn btn-success" style="width: 100%; margin-bottom: 0.5rem;" onclick="APP.exportDXF()">📦 Export DXF</button>
-                    <button class="btn btn-secondary" style="width: 100%;" onclick="APP.exportCSV()">📄 Export CSV</button>
+                    <button class="btn btn-success" style="width: 100%; margin-bottom: 0.5rem;" onclick="APP.exportDXF()">📦 Export DXF 3D</button>
+                    <button class="btn btn-secondary" style="width: 100%; margin-bottom: 0.5rem;" onclick="APP.exportCSV()">📄 Export CSV Points</button>
+                    <button class="btn btn-secondary" style="width: 100%;" onclick="APP.exportJSON()">💾 Export Projet</button>
                 </div>
                 
                 <div class="sidebar-section">
@@ -134,146 +146,148 @@
                         <span id="diagnosticToggleText">Afficher diagnostic</span>
                     </button>
                     <div id="diagnosticPanel" class="diagnostic-panel hidden" style="margin-top: 1rem;">
-                        <div id="diagnosticContent">Aucune donnée...</div>
+                        <div id="diagnosticContent">En attente d'import...</div>
                     </div>
                 </div>
             </aside>
             
             <div class="viewer-container">
-                <canvas id="pdfCanvas"></canvas>
                 <canvas id="canvas3d"></canvas>
-                <div id="selectionRect" class="selection-rect hidden"></div>
-                <div id="profileOverlay" class="profile-overlay hidden">
-                    <h3 style="font-weight: 600; margin-bottom: 0.5rem;">Profil en Long</h3>
-                    <canvas id="profileCanvas" style="width: 100%; height: 200px;"></canvas>
+                <div class="overlay">
+                    <div style="font-weight: 600; margin-bottom: 0.5rem;">CONTRÔLES 3D</div>
+                    <div>🖱️ Clic gauche: Rotation<br>🖱️ Clic droit: Déplacement<br>🖱️ Molette: Zoom</div>
+                </div>
+                <div id="noDataMessage" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: white;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">📐</div>
+                    <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 0.5rem;">TopoCAD Pro v1.2</h2>
+                    <p style="font-size: 1rem; opacity: 0.8;">Importez un fichier DXF ou DWG pour commencer</p>
+                    <p style="font-size: 0.875rem; opacity: 0.6; margin-top: 1rem;">Convertissez d'abord votre PDF en DXF/DWG</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
 const APP = {
     state: {
-        pdf: null,
+        dxf: null,
+        entities: [],
         points: [],
-        selectedPoints: [],
+        layers: {},
         currentTool: 'view',
         scene: null,
         camera: null,
         renderer: null,
-        pointMeshes: [],
-        pdfTexture: null,
-        selectionStart: null,
-        profilePoints: []
+        meshes: [],
+        exaggeration: 2
     },
     
-    // PATTERNS D'ALTITUDE AMÉLIORÉS - TOUS LES FORMATS
-    elevationPatterns: [
-        { name: 'NE=XXX,XX', regex: /NE\s*=\s*(\d{2,3}[.,]\d{1,2})/gi },
-        { name: 'NE=XXX.XX', regex: /NE\s*=\s*(\d{2,3}\.\d{1,2})/gi },
-        { name: 'NGF=XXX,XX', regex: /NGF\s*=\s*(\d{2,3}[.,]\d{1,2})/gi },
-        { name: 'Z=XXX,XX', regex: /Z\s*=\s*(\d{2,3}[.,]\d{1,2})/gi },
-        { name: 'XXX,XX isolé', regex: /\b(\d{2,3},\d{1,2})\b/g },
-        { name: 'XXX.XX isolé', regex: /\b(\d{2,3}\.\d{1,2})\b/g },
-        { name: 'XXX,XXm', regex: /(\d{2,3},\d{1,2})\s*m\b/gi },
-        { name: 'XXX.XXm', regex: /(\d{2,3}\.\d{1,2})\s*m\b/gi }
-    ],
-    
-    async loadPDF(file) {
+    async loadFile(file) {
         try {
-            this.log('📄 Chargement du PDF...', 'info');
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 2.0 });
+            this.showLoading(true);
+            this.log(`📂 Chargement de ${file.name}...`, 'info');
             
-            // Rendu du PDF sur canvas
-            const canvas = document.getElementById('pdfCanvas');
-            const context = canvas.getContext('2d');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
+            const text = await file.text();
+            const parser = new window.DxfParser();
             
-            await page.render({ canvasContext: context, viewport: viewport }).promise;
-            this.log('✅ PDF rendu à l\'écran', 'success');
+            try {
+                const dxf = parser.parseSync(text);
+                this.state.dxf = dxf;
+                this.log(`✅ Fichier DXF chargé avec succès`, 'success');
+                this.processDXF(dxf);
+            } catch (err) {
+                this.log(`⚠️ Tentative de lecture comme DWG...`, 'warning');
+                this.log(`❌ Format DWG non supporté directement. Convertissez en DXF d'abord.`, 'error');
+                alert('Les fichiers DWG ne sont pas directement supportés.\n\nConvertissez votre fichier DWG en DXF avec:\n- AutoCAD\n- LibreCAD\n- Convertisseur en ligne');
+            }
             
-            // Extraction du texte
-            const textContent = await page.getTextContent();
-            this.log(`✅ ${textContent.items.length} éléments de texte trouvés`, 'success');
-            
-            // Extraction des points
-            this.state.points = this.extractPoints(textContent, viewport);
-            this.log(`✅ ${this.state.points.length} points extraits`, 'success');
-            
-            this.state.pdf = { pdf, page, viewport };
-            this.updateStats();
-            this.init3D();
-            this.render3D();
-            
-            document.getElementById('statsSection').classList.remove('hidden');
-            document.getElementById('params3DSection').classList.remove('hidden');
-            document.getElementById('exportSection').classList.remove('hidden');
-            
+            this.showLoading(false);
         } catch (error) {
             this.log(`❌ Erreur: ${error.message}`, 'error');
-            alert('Erreur lors du chargement du PDF');
+            this.showLoading(false);
+            alert('Erreur lors du chargement du fichier');
         }
     },
     
-    extractPoints(textContent, viewport) {
-        const points = [];
-        const stats = {};
+    processDXF(dxf) {
+        this.log(`📊 Analyse du fichier DXF...`, 'info');
         
-        // Pour chaque pattern
-        this.elevationPatterns.forEach(pattern => {
-            let count = 0;
-            
-            textContent.items.forEach(item => {
-                const text = item.str.trim();
-                if (!text) return;
+        // Extraire les entités
+        this.state.entities = [];
+        this.state.layers = {};
+        
+        if (dxf.entities) {
+            dxf.entities.forEach(entity => {
+                this.state.entities.push(entity);
                 
-                pattern.regex.lastIndex = 0;
-                let match;
-                
-                while ((match = pattern.regex.exec(text)) !== null) {
-                    let elevStr = match[1].replace(',', '.');
-                    let elevation = parseFloat(elevStr);
-                    
-                    // Validation altitude plausible
-                    if (elevation < 0 || elevation > 3000) continue;
-                    if (elevation < 10 || elevation > 500) continue; // Filtrage additionnel
-                    
-                    const x = item.transform[4];
-                    const y = viewport.height - item.transform[5];
-                    
-                    // Vérifier doublons
-                    const exists = points.some(p => 
-                        Math.abs(p.x - x) < 5 && 
-                        Math.abs(p.y - y) < 5
-                    );
-                    
-                    if (!exists) {
-                        points.push({
-                            id: `pt_${points.length}`,
-                            x: x,
-                            y: y,
-                            elevation: elevation,
-                            source: pattern.name,
-                            selected: false
-                        });
-                        count++;
-                    }
-                }
+                // Compter par layer
+                const layer = entity.layer || '0';
+                this.state.layers[layer] = (this.state.layers[layer] || 0) + 1;
             });
-            
-            if (count > 0) {
-                stats[pattern.name] = count;
-                this.log(`✓ ${pattern.name}: ${count} points`, 'success');
+        }
+        
+        this.log(`✅ ${this.state.entities.length} entités trouvées`, 'success');
+        this.log(`📋 ${Object.keys(this.state.layers).length} layers détectés`, 'info');
+        
+        // Extraire les points d'altitude
+        this.extractElevationPoints();
+        
+        // Afficher les stats
+        this.updateStats();
+        this.updateLayers();
+        
+        // Initialiser la 3D
+        this.init3D();
+        this.render3D();
+        
+        // Afficher les sections
+        document.getElementById('statsSection').classList.remove('hidden');
+        document.getElementById('layersSection').classList.remove('hidden');
+        document.getElementById('params3DSection').classList.remove('hidden');
+        document.getElementById('exportSection').classList.remove('hidden');
+        document.getElementById('noDataMessage').classList.add('hidden');
+    },
+    
+    extractElevationPoints() {
+        this.state.points = [];
+        
+        // Patterns d'altitude à rechercher dans les textes
+        const patterns = [
+            { name: 'NE=XXX.XX', regex: /NE\s*=\s*(\d{2,3}[.,]\d{1,2})/i },
+            { name: 'NGF=XXX.XX', regex: /NGF\s*=\s*(\d{2,3}[.,]\d{1,2})/i },
+            { name: 'Z=XXX.XX', regex: /Z\s*=\s*(\d{2,3}[.,]\d{1,2})/i },
+            { name: 'XXX.XX isolé', regex: /^(\d{2,3}[.,]\d{1,2})$/i },
+            { name: 'XXX.XXm', regex: /(\d{2,3}[.,]\d{1,2})\s*m/i }
+        ];
+        
+        this.state.entities.forEach(entity => {
+            if (entity.type === 'TEXT' || entity.type === 'MTEXT') {
+                const text = entity.text || '';
+                
+                patterns.forEach(pattern => {
+                    const match = text.match(pattern.regex);
+                    if (match) {
+                        const elevStr = match[1].replace(',', '.');
+                        const elevation = parseFloat(elevStr);
+                        
+                        if (elevation > 0 && elevation < 5000) {
+                            this.state.points.push({
+                                x: entity.position?.x || entity.startPoint?.x || 0,
+                                y: entity.position?.y || entity.startPoint?.y || 0,
+                                z: elevation,
+                                elevation: elevation,
+                                text: text,
+                                source: pattern.name,
+                                layer: entity.layer
+                            });
+                            this.log(`✓ Point trouvé: ${text} (${elevation}m) sur layer "${entity.layer}"`, 'success');
+                        }
+                    }
+                });
             }
         });
         
-        return points;
+        this.log(`✅ ${this.state.points.length} points d'altitude extraits`, 'success');
     },
     
     init3D() {
@@ -282,52 +296,124 @@ const APP = {
         const height = canvas.parentElement.offsetHeight;
         
         this.state.scene = new THREE.Scene();
-        this.state.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 10000);
-        this.state.camera.position.set(200, 200, 200);
+        this.state.scene.background = new THREE.Color(0x1f2937);
         
-        this.state.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        this.state.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 100000);
+        this.state.camera.position.set(500, 500, 500);
+        
+        this.state.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
         this.state.renderer.setSize(width, height);
-        this.state.renderer.setClearColor(0x000000, 0);
         
+        // Lumières
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         this.state.scene.add(ambientLight);
         
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(100, 200, 100);
+        directionalLight.position.set(1000, 2000, 1000);
         this.state.scene.add(directionalLight);
+        
+        // Grille
+        const gridHelper = new THREE.GridHelper(1000, 50, 0x888888, 0x444444);
+        gridHelper.name = 'grid';
+        this.state.scene.add(gridHelper);
+        
+        // Axes
+        const axesHelper = new THREE.AxesHelper(500);
+        axesHelper.name = 'axes';
+        this.state.scene.add(axesHelper);
         
         this.setupControls();
         this.animate();
     },
     
     render3D() {
-        this.state.pointMeshes.forEach(mesh => this.state.scene.remove(mesh));
-        this.state.pointMeshes = [];
+        // Supprimer les anciens meshes
+        this.state.meshes.forEach(mesh => this.state.scene.remove(mesh));
+        this.state.meshes = [];
         
-        if (!this.state.points.length) return;
+        const exag = this.state.exaggeration;
         
-        const elevations = this.state.points.map(p => p.elevation);
-        const avgElev = elevations.reduce((a,b) => a+b, 0) / elevations.length;
-        const exag = parseFloat(document.getElementById('exagSlider').value);
+        // Calculer les limites et moyenne
+        let minElev = Infinity, maxElev = -Infinity;
+        if (this.state.points.length > 0) {
+            this.state.points.forEach(p => {
+                if (p.elevation < minElev) minElev = p.elevation;
+                if (p.elevation > maxElev) maxElev = p.elevation;
+            });
+        }
+        const avgElev = (minElev + maxElev) / 2;
         
+        // Rendu des entités DXF
+        this.state.entities.forEach(entity => {
+            if (entity.type === 'LINE') {
+                const points = [
+                    new THREE.Vector3(entity.vertices[0].x, 0, entity.vertices[0].y),
+                    new THREE.Vector3(entity.vertices[1].x, 0, entity.vertices[1].y)
+                ];
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+                const line = new THREE.Line(geometry, material);
+                this.state.scene.add(line);
+                this.state.meshes.push(line);
+            }
+            else if (entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE') {
+                const points = entity.vertices.map(v => 
+                    new THREE.Vector3(v.x, 0, v.y)
+                );
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+                const line = new THREE.Line(geometry, material);
+                this.state.scene.add(line);
+                this.state.meshes.push(line);
+            }
+            else if (entity.type === 'CIRCLE') {
+                const curve = new THREE.EllipseCurve(
+                    entity.center.x, entity.center.y,
+                    entity.radius, entity.radius,
+                    0, 2 * Math.PI,
+                    false, 0
+                );
+                const points = curve.getPoints(50).map(p => new THREE.Vector3(p.x, 0, p.y));
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({ color: 0x00ffff });
+                const line = new THREE.LineLoop(geometry, material);
+                this.state.scene.add(line);
+                this.state.meshes.push(line);
+            }
+            else if (entity.type === 'ARC') {
+                const startAngle = entity.startAngle * Math.PI / 180;
+                const endAngle = entity.endAngle * Math.PI / 180;
+                const curve = new THREE.EllipseCurve(
+                    entity.center.x, entity.center.y,
+                    entity.radius, entity.radius,
+                    startAngle, endAngle,
+                    false, 0
+                );
+                const points = curve.getPoints(50).map(p => new THREE.Vector3(p.x, 0, p.y));
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({ color: 0xffff00 });
+                const line = new THREE.Line(geometry, material);
+                this.state.scene.add(line);
+                this.state.meshes.push(line);
+            }
+        });
+        
+        // Rendu des points d'altitude
         this.state.points.forEach(point => {
-            const geometry = new THREE.SphereGeometry(3, 16, 16);
+            const geometry = new THREE.SphereGeometry(5, 16, 16);
             const material = new THREE.MeshStandardMaterial({
-                color: point.selected ? 0xff6b00 : 0x3b82f6,
+                color: 0xff0000,
                 metalness: 0.3,
                 roughness: 0.4
             });
             
-            const x3d = (point.x - this.state.pdf.viewport.width / 2) / 5;
-            const y3d = (point.y - this.state.pdf.viewport.height / 2) / 5;
             const z3d = (point.elevation - avgElev) * exag;
-            
             const sphere = new THREE.Mesh(geometry, material);
-            sphere.position.set(x3d, z3d, y3d);
+            sphere.position.set(point.x, z3d, point.y);
             sphere.userData = { point };
             
             this.state.scene.add(sphere);
-            this.state.pointMeshes.push(sphere);
+            this.state.meshes.push(sphere);
         });
         
         this.fitCamera();
@@ -340,15 +426,6 @@ const APP = {
         let isRightClick = false;
         
         canvas.addEventListener('mousedown', (e) => {
-            if (this.state.currentTool === 'select') {
-                this.startSelection(e);
-                return;
-            }
-            if (this.state.currentTool === 'profile') {
-                this.addProfilePoint(e);
-                return;
-            }
-            
             isDragging = true;
             isRightClick = e.button === 2;
             previousMouse = { x: e.clientX, y: e.clientY };
@@ -356,11 +433,6 @@ const APP = {
         });
         
         canvas.addEventListener('mousemove', (e) => {
-            if (this.state.currentTool === 'select' && this.state.selectionStart) {
-                this.updateSelection(e);
-                return;
-            }
-            
             if (!isDragging) return;
             
             const deltaX = e.clientX - previousMouse.x;
@@ -385,14 +457,7 @@ const APP = {
             previousMouse = { x: e.clientX, y: e.clientY };
         });
         
-        canvas.addEventListener('mouseup', (e) => {
-            if (this.state.currentTool === 'select' && this.state.selectionStart) {
-                this.endSelection(e);
-                return;
-            }
-            isDragging = false;
-        });
-        
+        canvas.addEventListener('mouseup', () => { isDragging = false; });
         canvas.addEventListener('contextmenu', (e) => e.preventDefault());
         
         canvas.addEventListener('wheel', (e) => {
@@ -403,76 +468,14 @@ const APP = {
         });
     },
     
-    startSelection(e) {
-        const rect = e.target.getBoundingClientRect();
-        this.state.selectionStart = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
-        document.getElementById('selectionRect').classList.remove('hidden');
-    },
-    
-    updateSelection(e) {
-        const rect = e.target.getBoundingClientRect();
-        const current = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
-        
-        const selRect = document.getElementById('selectionRect');
-        const left = Math.min(this.state.selectionStart.x, current.x);
-        const top = Math.min(this.state.selectionStart.y, current.y);
-        const width = Math.abs(current.x - this.state.selectionStart.x);
-        const height = Math.abs(current.y - this.state.selectionStart.y);
-        
-        selRect.style.left = left + 'px';
-        selRect.style.top = top + 'px';
-        selRect.style.width = width + 'px';
-        selRect.style.height = height + 'px';
-    },
-    
-    endSelection(e) {
-        const rect = e.target.getBoundingClientRect();
-        const end = {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
-        
-        const left = Math.min(this.state.selectionStart.x, end.x);
-        const top = Math.min(this.state.selectionStart.y, end.y);
-        const right = Math.max(this.state.selectionStart.x, end.x);
-        const bottom = Math.max(this.state.selectionStart.y, end.y);
-        
-        // Sélectionner les points dans le rectangle
-        this.state.points.forEach(point => {
-            const inRect = point.x >= left && point.x <= right && 
-                          point.y >= top && point.y <= bottom;
-            point.selected = inRect;
-        });
-        
-        this.state.selectedPoints = this.state.points.filter(p => p.selected);
-        this.updateStats();
-        this.render3D();
-        
-        document.getElementById('selectionRect').classList.add('hidden');
-        this.state.selectionStart = null;
-        
-        this.log(`✅ ${this.state.selectedPoints.length} points sélectionnés`, 'success');
-    },
-    
-    addProfilePoint(e) {
-        // À implémenter pour profil en long
-        this.log('⚠️ Profil en long: tracez une ligne sur le plan', 'warning');
-    },
-    
     fitCamera() {
-        if (!this.state.pointMeshes.length) return;
+        if (this.state.meshes.length === 0) return;
         const box = new THREE.Box3();
-        this.state.pointMeshes.forEach(mesh => box.expandByObject(mesh));
+        this.state.meshes.forEach(mesh => box.expandByObject(mesh));
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-        const distance = maxDim * 2;
+        const distance = maxDim * 1.5;
         this.state.camera.position.set(center.x + distance, center.y + distance, center.z + distance);
         this.state.camera.lookAt(center);
     },
@@ -485,30 +488,44 @@ const APP = {
     },
     
     exportDXF() {
-        const points = this.state.selectedPoints.length > 0 ? this.state.selectedPoints : this.state.points;
-        if (!points.length) return alert('Aucun point à exporter');
+        if (!this.state.points.length) return alert('Aucun point à exporter');
         
-        let dxf = "0\nSECTION\n2\nENTITIES\n";
-        points.forEach(p => {
-            dxf += `0\nPOINT\n8\nPOINTS_TOPO\n10\n${p.x.toFixed(2)}\n20\n${p.y.toFixed(2)}\n30\n${p.elevation.toFixed(2)}\n`;
+        let dxf = "0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1009\n0\nENDSEC\n";
+        dxf += "0\nSECTION\n2\nENTITIES\n";
+        
+        this.state.points.forEach(p => {
+            dxf += `0\nPOINT\n8\nPOINTS_TOPO_3D\n10\n${p.x.toFixed(3)}\n20\n${p.y.toFixed(3)}\n30\n${p.z.toFixed(3)}\n`;
         });
+        
         dxf += "0\nENDSEC\n0\nEOF\n";
         
-        this.downloadFile(dxf, 'topocad_export.dxf', 'application/dxf');
-        this.log(`✅ Export DXF: ${points.length} points`, 'success');
+        this.downloadFile(dxf, 'topocad_export_3d.dxf', 'application/dxf');
+        this.log(`✅ Export DXF 3D: ${this.state.points.length} points`, 'success');
     },
     
     exportCSV() {
-        const points = this.state.selectedPoints.length > 0 ? this.state.selectedPoints : this.state.points;
-        if (!points.length) return alert('Aucun point à exporter');
+        if (!this.state.points.length) return alert('Aucun point à exporter');
         
-        let csv = 'ID,X,Y,Z,Source\n';
-        points.forEach((p, i) => {
-            csv += `${i+1},${p.x.toFixed(2)},${p.y.toFixed(2)},${p.elevation.toFixed(2)},${p.source}\n`;
+        let csv = 'ID,X,Y,Z,Text,Source,Layer\n';
+        this.state.points.forEach((p, i) => {
+            csv += `${i+1},${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)},"${p.text}",${p.source},${p.layer}\n`;
         });
         
-        this.downloadFile(csv, 'topocad_export.csv', 'text/csv');
-        this.log(`✅ Export CSV: ${points.length} points`, 'success');
+        this.downloadFile(csv, 'topocad_points.csv', 'text/csv');
+        this.log(`✅ Export CSV: ${this.state.points.length} points`, 'success');
+    },
+    
+    exportJSON() {
+        const data = {
+            version: '1.2',
+            date: new Date().toISOString(),
+            entities: this.state.entities.length,
+            points: this.state.points,
+            layers: this.state.layers
+        };
+        
+        this.downloadFile(JSON.stringify(data, null, 2), 'topocad_project.json', 'application/json');
+        this.log(`✅ Projet exporté`, 'success');
     },
     
     downloadFile(content, filename, mimeType) {
@@ -525,18 +542,34 @@ const APP = {
         this.state.currentTool = tool;
         document.querySelectorAll('.btn-tool').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`[data-tool="${tool}"]`).classList.add('active');
-        this.log(`🛠️ Outil activé: ${tool}`, 'info');
+        this.log(`🛠️ Outil: ${tool}`, 'info');
     },
     
     updateStats() {
+        document.getElementById('statEntities').textContent = this.state.entities.length;
         document.getElementById('statPoints').textContent = this.state.points.length;
-        document.getElementById('statSelected').textContent = this.state.selectedPoints.length;
         
         if (this.state.points.length) {
             const elevs = this.state.points.map(p => p.elevation);
             document.getElementById('statMinElev').textContent = Math.min(...elevs).toFixed(2) + 'm';
             document.getElementById('statMaxElev').textContent = Math.max(...elevs).toFixed(2) + 'm';
         }
+    },
+    
+    updateLayers() {
+        const list = document.getElementById('layersList');
+        list.innerHTML = '';
+        
+        Object.entries(this.state.layers).forEach(([name, count]) => {
+            const div = document.createElement('div');
+            div.style.cssText = 'padding: 0.5rem; background: #f9fafb; border-radius: 0.25rem; margin-bottom: 0.5rem; font-size: 0.75rem;';
+            div.innerHTML = `<strong>${name}</strong>: ${count} entités`;
+            list.appendChild(div);
+        });
+    },
+    
+    showLoading(show) {
+        document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
     },
     
     log(message, type = 'info') {
@@ -556,47 +589,76 @@ const APP = {
         panel.classList.toggle('hidden');
         document.getElementById('diagnosticToggleText').textContent = 
             panel.classList.contains('hidden') ? 'Afficher diagnostic' : 'Masquer diagnostic';
+    },
+    
+    showHelp() {
+        alert(
+            'TopoCAD Pro v1.2 - Import DXF/DWG\n\n' +
+            '1. CONVERSION:\n' +
+            '   Convertissez votre PDF en DXF/DWG avec:\n' +
+            '   - AutoCAD\n' +
+            '   - LibreCAD\n' +
+            '   - Convertisseur en ligne\n\n' +
+            '2. IMPORT:\n' +
+            '   Glissez votre fichier DXF\n\n' +
+            '3. VISUALISATION:\n' +
+            '   - Lignes/polylignes en vert\n' +
+            '   - Points d\'altitude en rouge\n' +
+            '   - Navigation 3D complète\n\n' +
+            '4. EXPORT:\n' +
+            '   - DXF 3D avec altitudes\n' +
+            '   - CSV des points\n' +
+            '   - JSON du projet'
+        );
     }
 };
 
 // INITIALISATION
 document.addEventListener('DOMContentLoaded', () => {
-    APP.log('🚀 TopoCAD Pro v1.1 initialisé', 'success');
+    APP.log('🚀 TopoCAD Pro v1.2 - Import DXF/DWG', 'success');
     
-    const pdfInput = document.getElementById('pdfInput');
+    const fileInput = document.getElementById('fileInput');
     const dropzone = document.getElementById('dropzone');
     
-    pdfInput.addEventListener('change', (e) => {
+    fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-            APP.loadPDF(e.target.files[0]);
+            APP.loadFile(e.target.files[0]);
         }
     });
     
-    dropzone.addEventListener('click', () => pdfInput.click());
+    dropzone.addEventListener('click', () => fileInput.click());
+    
     dropzone.addEventListener('dragover', (e) => {
         e.preventDefault();
-        dropzone.style.borderColor = '#3b82f6';
+        dropzone.classList.add('active');
     });
+    
     dropzone.addEventListener('dragleave', () => {
-        dropzone.style.borderColor = '#d1d5db';
+        dropzone.classList.remove('active');
     });
+    
     dropzone.addEventListener('drop', (e) => {
         e.preventDefault();
-        dropzone.style.borderColor = '#d1d5db';
+        dropzone.classList.remove('active');
         if (e.dataTransfer.files.length > 0) {
-            APP.loadPDF(e.dataTransfer.files[0]);
+            APP.loadFile(e.dataTransfer.files[0]);
         }
     });
     
     document.getElementById('exagSlider').addEventListener('input', (e) => {
         document.getElementById('exagValue').textContent = e.target.value + 'x';
-        if (APP.state.points.length) APP.render3D();
+        APP.state.exaggeration = parseFloat(e.target.value);
+        if (APP.state.entities.length) APP.render3D();
     });
     
-    document.getElementById('opacitySlider').addEventListener('input', (e) => {
-        const opacity = e.target.value / 100;
-        document.getElementById('opacityValue').textContent = e.target.value + '%';
-        document.getElementById('pdfCanvas').style.opacity = opacity;
+    document.getElementById('showGrid').addEventListener('change', (e) => {
+        const grid = APP.state.scene?.getObjectByName('grid');
+        if (grid) grid.visible = e.target.checked;
+    });
+    
+    document.getElementById('showAxes').addEventListener('change', (e) => {
+        const axes = APP.state.scene?.getObjectByName('axes');
+        if (axes) axes.visible = e.target.checked;
     });
 });
     </script>
